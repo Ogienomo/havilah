@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual Environment
+.venv/
+venv/
+
+# Environment Variables
+.env
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# Mac/Linux junk
+.DS_Store
+
+# Pytest
+.pytest_cache/
+
+# Migrations cache
+alembic/versions/__pycache__/
+
+# Database dumps
+*.sql
+*.dump
+
+# Build artifacts
+dist/
+build/
