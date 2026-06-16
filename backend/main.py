@@ -122,14 +122,25 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 # ── CORS ────────────────────────────────────────────────────────
-cors_origins = get_cors_origins(settings.ENVIRONMENT) if not settings.DEBUG else ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
+# CORS_ORIGINS may contain wildcard patterns like "https://*.vercel.app".
+# Starlette's CORSMiddleware doesn't support wildcards in allow_origins
+# (except the literal "*" meaning "allow all"), so we split into:
+#   - exact_origins    → passed as allow_origins=[...]
+#   - wildcard_patterns → converted to a regex and passed as allow_origin_regex
+from backend.core.security import split_cors_origins, cors_origins_to_regex
+_all_origins = get_cors_origins(settings.ENVIRONMENT) if not settings.DEBUG else ["*"]
+_exact_origins, _wildcard_patterns = split_cors_origins(_all_origins)
+_cors_kwargs = dict(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+if _exact_origins:
+    _cors_kwargs["allow_origins"] = _exact_origins
+if _wildcard_patterns:
+    _cors_kwargs["allow_origin_regex"] = cors_origins_to_regex(_wildcard_patterns)
+logger.info(f"CORS: exact={_exact_origins}, wildcard_regex={_cors_kwargs.get('allow_origin_regex')}")
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 # ── Audit Middleware ─────────────────────────────────────────────
 from backend.api.middleware import AuditMiddleware

@@ -265,6 +265,8 @@ def get_cors_origins(environment: str) -> list[str]:
     Priority:
       1. HAVILAH_CORS_ORIGINS env var (comma-separated) — recommended for Railway
          Example: "https://havilah.vercel.app,https://dashboard.havilah.os"
+         Wildcard patterns like "https://*.vercel.app" are supported — they
+         will be converted to regex and applied via allow_origin_regex in main.py.
       2. Environment-based defaults below
 
     Production: Only explicitly allowed domains
@@ -297,3 +299,38 @@ def get_cors_origins(environment: str) -> list[str]:
             "http://127.0.0.1:3000",
             "http://127.0.0.1:8000",
         ]
+
+
+def split_cors_origins(origins: list[str]) -> tuple[list[str], list[str]]:
+    """Split a CORS origins list into (exact_origins, wildcard_patterns).
+
+    Wildcard patterns (containing '*') must be applied via allow_origin_regex
+    in CORSMiddleware — Starlette's allow_origins list does NOT support wildcards
+    (except the single '*' meaning "allow all").
+
+    Returns:
+      exact_origins   : list of origins with no '*' (use as allow_origins=...)
+      wildcard_patterns: list of patterns containing '*' (convert to regex)
+    """
+    exact = [o for o in origins if "*" not in o]
+    wildcards = [o for o in origins if "*" in o]
+    return exact, wildcards
+
+
+def cors_origins_to_regex(patterns: list[str]) -> Optional[str]:
+    """Convert glob-style origin patterns to a single Python regex.
+
+    Example:
+        ["https://*.vercel.app", "https://havilah-**.up.railway.app"]
+        → "^(https://[a-zA-Z0-9.-]+\\.vercel\\.app|https://havilah-.*\\.up\\.railway\\.app)$"
+
+    Returns None if patterns is empty (caller should skip allow_origin_regex).
+    """
+    if not patterns:
+        return None
+    parts = []
+    for p in patterns:
+        # Escape regex metacharacters, then un-escape our glob '*' to '[a-zA-Z0-9.-]+'
+        escaped = re.escape(p).replace(r"\*", "[a-zA-Z0-9._-]+")
+        parts.append(escaped)
+    return "^(?:" + "|".join(parts) + ")$"
