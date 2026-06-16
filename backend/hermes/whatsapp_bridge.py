@@ -295,10 +295,23 @@ class WhatsAppBridge:
     def _send_whatsapp_response(self, phone_number: str, text: str):
         """Send a response via WhatsApp."""
         try:
-            self.whatsapp_service.send_message(
-                phone_number=phone_number,
-                message=text,
-            )
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're in an async context — schedule the coroutine
+                asyncio.ensure_future(
+                    self.whatsapp_service.send_text_message(
+                        phone_number=phone_number,
+                        text=text,
+                    )
+                )
+            else:
+                loop.run_until_complete(
+                    self.whatsapp_service.send_text_message(
+                        phone_number=phone_number,
+                        text=text,
+                    )
+                )
         except Exception as e:
             logger.warning(f"Could not send WhatsApp response: {e}")
             # Not critical — the message was processed, just couldn't send back via WhatsApp

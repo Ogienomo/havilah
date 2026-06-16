@@ -105,6 +105,9 @@ async def webhook_receiver(request: Request):
     """
     WhatsApp webhook receiver (POST).
     Receives all events from WhatsApp: messages, status updates, errors.
+
+    Incoming text messages are ALSO routed through the Hermes bridge
+    so users can give natural language instructions via WhatsApp.
     """
     payload = await request.json()
 
@@ -114,8 +117,53 @@ async def webhook_receiver(request: Request):
     service = WhatsAppService()
     result = await service.process_webhook(payload)
 
+    # ── Route inbound text messages through Hermes bridge ────
+    # This lets users control Hermes directly from WhatsApp:
+    # "Create a project for X" / "approve" / "status" / "help"
+    if settings.HERMES_ENABLED and settings.OPENAI_API_KEY:
+        try:
+            await _route_to_hermes(payload)
+        except Exception as e:
+            logger.warning(f"Hermes bridge routing failed: {e}")
+
     # Meta expects a 200 OK response quickly
     return {"status": "received", "detail": result}
+
+
+async def _route_to_hermes(payload: dict):
+    """Extract inbound text messages and route them to the Hermes WhatsApp bridge."""
+    from backend.hermes.whatsapp_bridge import WhatsAppBridge
+
+    bridge = WhatsAppBridge()
+
+    for entry in payload.get("entry", []):
+        for change in entry.get("changes", []):
+            value = change.get("value", {})
+            messages = value.get("messages", [])
+            for msg in messages:
+                if msg.get("type") != "text":
+                    continue
+
+                phone_number = msg.get("from", "")
+                text_body = msg.get("text", {}).get("body", "")
+                message_id = msg.get("id")
+
+                if not phone_number or not text_body:
+                    continue
+
+                # Skip messages from the bot itself
+                contacts = value.get("contacts", [])
+                if contacts:
+                    wa_id = contacts[0].get("wa_id", "")
+                    if wa_id == settings.WHATSAPP_PHONE_NUMBER_ID:
+                        continue
+
+                logger.info(f"Routing WhatsApp message to Hermes: '{text_body[:60]}'")
+                bridge.process_incoming_message(
+                    phone_number=phone_number,
+                    message_text=text_body,
+                    message_id=message_id,
+                )
 
 
 # ── Message Sending ──────────────────────────────────────────
