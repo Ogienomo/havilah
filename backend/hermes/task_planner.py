@@ -1,0 +1,236 @@
+"""
+Havilah OS — Task Planner
+
+Decomposes natural language instructions into structured execution plans.
+Each plan is a sequence of steps that specify:
+- Which agent should handle it
+- What action to perform
+- Whether approval is required before execution
+- Expected output type
+
+The planner NEVER executes — it only creates the plan.
+The orchestrator executes the plan step by step.
+"""
+
+import logging
+from typing import Optional
+from datetime import datetime, timezone
+
+from backend.hermes.llm_provider import LLMProvider
+from backend.hermes.agent_registry import AgentRegistry
+
+logger = logging.getLogger("havilah.planner")
+
+
+# ── Plan Step Schema ────────────────────────────────────────────
+
+PLAN_STEP_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "step_number": {"type": "integer", "description": "1-based step number"},
+                    "agent": {
+                        "type": "string",
+                        "enum": ["planner", "executive", "research", "writing", "meeting",
+                                 "reviewer", "critic", "memory", "learning", "approval"],
+                        "description": "Which specialized agent handles this step",
+                    },
+                    "action": {"type": "string", "description": "What the agent should do"},
+                    "approval_required": {"type": "boolean", "description": "Whether human approval is needed before executing this step's external effects"},
+                    "approval_category": {
+                        "type": "string",
+                        "enum": ["communication", "financial", "project", "strategic", "administrative"],
+                        "description": "Category of approval if approval_required is true",
+                    },
+                    "expected_output": {"type": "string", "description": "What this step should produce"},
+                    "depends_on": {
+                        "type": "array",
+                        "items": {"type": "integer"},
+                        "description": "Step numbers this step depends on (0 = no dependency)",
+                    },
+                    "risk_level": {
+                        "type": "string",
+                        "enum": ["low", "medium", "high", "critical"],
+                        "description": "Assessed risk level of this step",
+                    },
+                },
+                "required": ["step_number", "agent", "action", "approval_required", "expected_output", "risk_level"],
+            },
+        },
+        "summary": {"type": "string", "description": "Brief summary of the overall plan"},
+        "requires_any_approval": {"type": "boolean", "description": "Whether any step requires approval"},
+    },
+    "required": ["steps", "summary", "requires_any_approval"],
+}
+
+
+class TaskPlanner:
+    """
+    Decomposes natural language instructions into execution plans.
+
+    The planner uses the LLM to:
+    1. Understand the user's intent
+    2. Break it into steps
+    3. Assign the right agent to each step
+    4. Determine approval requirements
+    5. Assess risk levels
+
+    All external actions MUST have approval_required=true.
+    Internal actions (reading, analyzing, drafting) may skip approval.
+    """
+
+    def __init__(self):
+        self.llm = LLMProvider()
+        self.registry = AgentRegistry()
+
+    def plan(self, instruction: str, context: Optional[dict] = None) -> dict:
+        """
+        Create an execution plan from a natural language instruction.
+
+        Args:
+            instruction: What the user wants done (e.g., "Draft a project update email to Client X")
+            context: Optional additional context (current projects, recent memory, etc.)
+
+        Returns:
+            {
+                "plan_id": str,
+                "instruction": str,
+                "summary": str,
+                "steps": [...],
+                "requires_any_approval": bool,
+                "created_at": str,
+            }
+        """
+        import uuid
+
+        # Build context section
+        context_section = ""
+        if context:
+            context_section = f"\n\nAdditional context:\n"
+            for key, value in context.items():
+                context_section += f"- {key}: {value}\n"
+
+        # Build agent capabilities section
+        agent_section = "Available agents and their roles:\n"
+        for agent in self.registry.list_all():
+            agent_section += f"- {agent.name}: {agent.description}\n"
+            agent_section += f"  Capabilities: {', '.join(agent.capabilities)}\n"
+
+        prompt = f"""Create an execution plan for the following instruction:
+
+INSTRUCTION: {instruction}
+{context_section}
+
+{agent_section}
+
+RULES:
+1. Every step that involves EXTERNAL action (sending messages, making payments, publishing content, changing client data) MUST have approval_required=true
+2. Steps that are INTERNAL only (reading data, analysis, drafting, summarizing) may have approval_required=false
+3. Assign the most appropriate agent to each step
+4. Steps should be sequential but can have parallel dependencies
+5. The reviewer agent should review any externally-facing output before approval
+6. Assess risk level honestly — low for read-only, medium for drafts, high for external actions, critical for financial/legal
+
+Output a JSON plan following the schema."""
+
+        logger.info(f"Planning instruction: {instruction[:100]}...")
+
+        result = self.llm.chat_json(
+            messages=[{"role": "user", "content": prompt}],
+            agent_type="planner",
+        )
+
+        plan_data = result["data"]
+
+        # Validate and normalize the plan
+        if "steps" not in plan_data:
+            # If the LLM didn't follow the schema perfectly, create a minimal plan
+            logger.warning("LLM plan did not include 'steps', creating default plan")
+            plan_data = self._create_fallback_plan(instruction)
+
+        # Enrich with metadata
+        plan = {
+            "plan_id": str(uuid.uuid4()),
+            "instruction": instruction,
+            "summary": plan_data.get("summary", instruction),
+            "steps": plan_data["steps"],
+            "requires_any_approval": plan_data.get("requires_any_approval", True),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "token_usage": result.get("tokens", {}),
+        }
+
+        # Safety check: if ANY step has approval_required, set the flag
+        for step in plan["steps"]:
+            if step.get("approval_required", False):
+                plan["requires_any_approval"] = True
+
+        logger.info(
+            f"Plan created: {len(plan['steps'])} steps, "
+            f"approval_required={plan['requires_any_approval']}"
+        )
+
+        return plan
+
+    def _create_fallback_plan(self, instruction: str) -> dict:
+        """
+        Create a simple fallback plan when the LLM output is malformed.
+        Routes through executive agent for analysis, then asks for human direction.
+        """
+        return {
+            "steps": [
+                {
+                    "step_number": 1,
+                    "agent": "executive",
+                    "action": f"Analyze the request and provide a structured recommendation: {instruction}",
+                    "approval_required": False,
+                    "expected_output": "Structured analysis and recommendation",
+                    "depends_on": [],
+                    "risk_level": "low",
+                },
+                {
+                    "step_number": 2,
+                    "agent": "memory",
+                    "action": "Capture any relevant context from institutional memory that relates to this request",
+                    "approval_required": False,
+                    "expected_output": "Relevant memory items and context",
+                    "depends_on": [1],
+                    "risk_level": "low",
+                },
+            ],
+            "summary": f"Analyze and prepare recommendation for: {instruction}",
+            "requires_any_approval": False,
+        }
+
+    def replan_step(self, step: dict, reason: str) -> dict:
+        """
+        Replan a single step that failed or needs modification.
+
+        Args:
+            step: The original step that needs replanning
+            reason: Why replanning is needed
+
+        Returns:
+            Updated step dict
+        """
+        prompt = f"""The following plan step needs to be revised:
+
+ORIGINAL STEP: {step.get('action', 'Unknown')}
+AGENT: {step.get('agent', 'Unknown')}
+REASON FOR REPLAN: {reason}
+
+Please provide a revised step in the same JSON format, with an updated action and possibly a different agent.
+Only change what's necessary — keep the same step_number."""
+
+        result = self.llm.chat_json(
+            messages=[{"role": "user", "content": prompt}],
+            agent_type="planner",
+        )
+
+        revised = result["data"]
+        # Preserve step_number from original
+        revised["step_number"] = step.get("step_number", 1)
+        return revised

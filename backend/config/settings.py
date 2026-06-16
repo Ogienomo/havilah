@@ -33,6 +33,14 @@ class Settings:
     SECRET_KEY: str = "change-me-in-production"
     API_KEY_SALT: str = "change-me-in-production"
 
+    # ── OpenAI / LLM ─────────────────────────────────────────
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_MAX_TOKENS: int = 4096
+    OPENAI_TEMPERATURE: float = 0.7
+    OPENAI_BASE_URL: str = ""  # Optional: custom endpoint/proxy for region-restricted access
+    HERMES_ENABLED: bool = True  # Master switch for Hermes orchestration
+
     # ── WhatsApp Business API ─────────────────────────────────
     WHATSAPP_VERIFY_TOKEN: str = "change-me-verify-token"
     WHATSAPP_ACCESS_TOKEN: str = ""
@@ -75,6 +83,12 @@ def get_settings() -> Settings:
         ENVIRONMENT=os.getenv("HAVILAH_ENV", "development"),
         SECRET_KEY=os.getenv("HAVILAH_SECRET_KEY", "change-me-in-production"),
         API_KEY_SALT=os.getenv("HAVILAH_API_KEY_SALT", "change-me-in-production"),
+        OPENAI_API_KEY=os.getenv("HAVILAH_OPENAI_API_KEY", ""),
+        OPENAI_MODEL=os.getenv("HAVILAH_OPENAI_MODEL", "gpt-4o"),
+        OPENAI_MAX_TOKENS=int(os.getenv("HAVILAH_OPENAI_MAX_TOKENS", "4096")),
+        OPENAI_TEMPERATURE=float(os.getenv("HAVILAH_OPENAI_TEMPERATURE", "0.7")),
+        OPENAI_BASE_URL=os.getenv("HAVILAH_OPENAI_BASE_URL", ""),
+        HERMES_ENABLED=os.getenv("HAVILAH_HERMES_ENABLED", "true").lower() == "true",
         WHATSAPP_VERIFY_TOKEN=os.getenv("HAVILAH_WHATSAPP_VERIFY_TOKEN", "change-me-verify-token"),
         WHATSAPP_ACCESS_TOKEN=os.getenv("HAVILAH_WHATSAPP_ACCESS_TOKEN", ""),
         WHATSAPP_PHONE_NUMBER_ID=os.getenv("HAVILAH_WHATSAPP_PHONE_NUMBER_ID", ""),

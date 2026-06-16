@@ -30,6 +30,9 @@ from backend.services.knowledge_service import KnowledgeService
 from backend.services.research_service import ResearchService
 from backend.services.content_service import ContentService
 from backend.services.whatsapp_service import WhatsAppService
+from backend.hermes.orchestrator import HermesOrchestrator
+from backend.hermes.agent_registry import AgentRegistry
+from backend.hermes.llm_provider import LLMProvider
 
 
 def get_approval_service() -> ApprovalService:
@@ -88,3 +91,12 @@ def get_content_service() -> ContentService:
 
 def get_whatsapp_service() -> WhatsAppService:
     return WhatsAppService()
+
+def get_hermes_orchestrator() -> HermesOrchestrator:
+    return HermesOrchestrator()
+
+def get_agent_registry() -> AgentRegistry:
+    return AgentRegistry()
+
+def get_llm_provider() -> LLMProvider:
+    return LLMProvider()

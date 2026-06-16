@@ -14,6 +14,9 @@ env:
   HAVILAH_DB_USER: "havilah_app"
   HAVILAH_DB_PASSWORD: "Havilah2026!"
   HAVILAH_WHATSAPP_VERIFY_TOKEN: "ci-verify-token"
+  HAVILAH_OPENAI_API_KEY: "ci-dummy-key"
+  HAVILAH_OPENAI_BASE_URL: ""
+  HAVILAH_HERMES_ENABLED: "false"
 
 jobs:
   # ── Lint & Type Check ────────────────────────────────────────

@@ -178,6 +178,16 @@ class MemoryCapture(BaseModel):
     importance: Optional[float] = 0.5
     confidence: Optional[float] = 0.5
 
+class MemoryCaptureCommand(BaseModel):
+    """Command model for Hermes memory recorder — matches MemoryCapture with string importance."""
+    memory_type: str = Field(..., min_length=1)
+    title: str = Field(..., min_length=1)
+    content: Optional[str] = None
+    source: Optional[str] = None
+    importance: Optional[str] = "medium"  # low, medium, high, critical
+    confidence: Optional[float] = 0.5
+    status: Optional[str] = "active"
+
 class MemoryLinkInput(BaseModel):
     entity_type: str
     entity_id: UUID
