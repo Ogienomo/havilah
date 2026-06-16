@@ -31,4 +31,4 @@ class RiskAssessment(UUIDPrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     assessed_at = Column(DateTime(timezone=True), nullable=True)
 
     # ── Relationships ─────────────────────────────────────────
-    approval_requests = relationship("ApprovalRequest", back_populates="risk_assessment")
+    approval_requests = relationship("ApprovalRequest", foreign_keys="ApprovalRequest.risk_assessment_id", back_populates="risk_assessment")

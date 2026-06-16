@@ -85,7 +85,7 @@ class ApprovalRequest(UUIDPrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     decisions = relationship("ApprovalDecision", back_populates="approval_request", lazy="selectin", order_by="ApprovalDecision.decided_at.desc()")
     events = relationship("ApprovalEvent", back_populates="approval_request", lazy="selectin", order_by="ApprovalEvent.created_at")
     execution_records = relationship("ExecutionRecord", back_populates="approval_request", lazy="selectin")
-    risk_assessment = relationship("RiskAssessment", back_populates="approval_requests")
+    risk_assessment = relationship("RiskAssessment", foreign_keys=[risk_assessment_id], back_populates="approval_requests")
     communications = relationship("CommunicationHistory", back_populates="approval")
 
 
