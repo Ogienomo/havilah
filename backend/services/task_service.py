@@ -6,10 +6,10 @@ from backend.repositories.event_repository import (
     EventRepository
 )
 
-from backend.events.task_events import (
+from backend.events import (
     TASK_CREATED,
     TASK_APPROVAL_LINKED,
-    TASK_STATUS_CHANGED
+    TASK_STATUS_CHANGED,
 )
 
 from backend.services.project_health_service import (

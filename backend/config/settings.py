@@ -1,0 +1,69 @@
+"""
+Havilah OS Configuration Module
+
+All credentials and environment-specific settings are loaded from
+environment variables with sensible defaults for local development.
+Never hardcode secrets in source code.
+"""
+
+import os
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Application settings loaded from environment variables."""
+
+    # ── Database ──────────────────────────────────────────────
+    DB_HOST: str = "localhost"
+    DB_PORT: int = 5432
+    DB_NAME: str = "havilah"
+    DB_USER: str = "havilah_app"
+    DB_PASSWORD: str = "Havilah2026!"
+    DB_ECHO: bool = False  # Set True for SQL logging in dev
+
+    # ── Application ───────────────────────────────────────────
+    APP_NAME: str = "Havilah OS"
+    APP_VERSION: str = "0.1.0"
+    DEBUG: bool = False
+    ENVIRONMENT: str = "development"  # development | staging | production
+
+    # ── Security ──────────────────────────────────────────────
+    SECRET_KEY: str = "change-me-in-production"
+    API_KEY_SALT: str = "change-me-in-production"
+
+    # ── Derived ───────────────────────────────────────────────
+    @property
+    def DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+psycopg2://"
+            f"{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+    @property
+    def ASYNC_DATABASE_URL(self) -> str:
+        return (
+            f"postgresql+asyncpg://"
+            f"{self.DB_USER}:{self.DB_PASSWORD}"
+            f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        )
+
+
+def get_settings() -> Settings:
+    """Build Settings from environment variables."""
+    return Settings(
+        DB_HOST=os.getenv("HAVILAH_DB_HOST", "localhost"),
+        DB_PORT=int(os.getenv("HAVILAH_DB_PORT", "5432")),
+        DB_NAME=os.getenv("HAVILAH_DB_NAME", "havilah"),
+        DB_USER=os.getenv("HAVILAH_DB_USER", "havilah_app"),
+        DB_PASSWORD=os.getenv("HAVILAH_DB_PASSWORD", "Havilah2026!"),
+        DB_ECHO=os.getenv("HAVILAH_DB_ECHO", "false").lower() == "true",
+        APP_NAME=os.getenv("HAVILAH_APP_NAME", "Havilah OS"),
+        APP_VERSION=os.getenv("HAVILAH_APP_VERSION", "0.1.0"),
+        DEBUG=os.getenv("HAVILAH_DEBUG", "false").lower() == "true",
+        ENVIRONMENT=os.getenv("HAVILAH_ENV", "development"),
+        SECRET_KEY=os.getenv("HAVILAH_SECRET_KEY", "change-me-in-production"),
+        API_KEY_SALT=os.getenv("HAVILAH_API_KEY_SALT", "change-me-in-production"),
+    )

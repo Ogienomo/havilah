@@ -1,10 +1,10 @@
 from backend.repositories.memory_repository import MemoryRepository
 from backend.repositories.event_repository import EventRepository
 
-from backend.events.memory_events import (
+from backend.events import (
     MEMORY_CAPTURED,
     MEMORY_LINKED,
-    MEMORY_REINFORCED
+    MEMORY_REINFORCED,
 )
 
 

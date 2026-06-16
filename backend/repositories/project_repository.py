@@ -1,315 +1,130 @@
+"""
+Havilah OS — Project Repository (FIXED)
+
+Fixes from original:
+  1. Uses context manager
+  2. Consistent indentation (fixed the mixed-indent bug)
+  3. Proper UUID casting in all raw SQL
+"""
+
 from sqlalchemy import text
-
-from backend.database import SessionLocal
-
 from backend.models.project import Project
+from backend.repositories.base import get_session
 
 
 class ProjectRepository:
 
-   def get_projects_by_status(
-       self,
-       status
-):
-
-    db = SessionLocal()
-
-    try:
-
-        result = db.execute(
-            text(
-                """
-                SELECT
-                    id,
-                    name,
-                    status
-                FROM projects
-                WHERE status = :status
-                ORDER BY updated_at DESC
-                """
-            ),
-            {
-                "status": status
-            }
-        )
-
-        return [
-            dict(row._mapping)
-            for row in result
-        ]
-
-    finally:
-
-        db.close()
-
-    def create(self, data):
-
-        db = SessionLocal()
-
-        try:
-
-            project = Project(
-                name=data["name"],
-                description=data.get("description"),
-                status=data.get("status", "active")
+    def get_projects_by_status(self, status: str):
+        with get_session() as db:
+            result = db.execute(
+                text("""
+                    SELECT id, title, status, priority, created_at
+                    FROM projects
+                    WHERE status = :status
+                    ORDER BY updated_at DESC
+                """),
+                {"status": status},
             )
+            return [dict(row._mapping) for row in result]
 
+    def create(self, data: dict) -> dict:
+        with get_session() as db:
+            project = Project(
+                title=data["name"],
+                objective=data.get("description"),
+                project_type=data.get("project_type"),
+                priority=data.get("priority", "medium"),
+                status=data.get("status", "active"),
+                client_contact_id=data.get("client_contact_id"),
+                organization_id=data.get("organization_id"),
+            )
             db.add(project)
-
-            db.commit()
-
-            db.refresh(project)
-
+            db.flush()
             return {
                 "id": str(project.id),
-                "name": project.name,
-                "description": project.description,
-                "status": project.status
+                "title": project.title,
+                "status": project.status,
+                "priority": project.priority,
             }
-
-        finally:
-
-            db.close()
 
     def get_by_id(self, project_id):
-
-        db = SessionLocal()
-
-        try:
-
-            project = (
-                db.query(Project)
-                .filter(Project.id == project_id)
-                .first()
-            )
-
+        with get_session() as db:
+            project = db.query(Project).filter(Project.id == project_id).first()
             if project is None:
                 return None
-
             return {
                 "id": str(project.id),
-                "name": project.name,
-                "description": project.description,
+                "title": project.title,
+                "objective": project.objective,
                 "status": project.status,
+                "priority": project.priority,
                 "created_at": project.created_at,
-                "updated_at": project.updated_at
+                "updated_at": project.updated_at,
             }
-
-        finally:
-
-            db.close()
 
     def get_all(self):
-
-        db = SessionLocal()
-
-        try:
-
-            projects = (
-                db.query(Project)
-                .order_by(Project.created_at)
-                .all()
-            )
-
+        with get_session() as db:
+            projects = db.query(Project).order_by(Project.created_at.desc()).all()
             return [
-                {
-                    "id": str(project.id),
-                    "name": project.name,
-                    "status": project.status
-                }
-                for project in projects
+                {"id": str(p.id), "title": p.title, "status": p.status, "priority": p.priority}
+                for p in projects
             ]
 
-        finally:
-
-            db.close()
-
-    def update_status(self, project_id, status):
-
-        db = SessionLocal()
-
-        try:
-
-            project = (
-                db.query(Project)
-                .filter(Project.id == project_id)
-                .first()
-            )
-
+    def update_status(self, project_id, status: str):
+        with get_session() as db:
+            project = db.query(Project).filter(Project.id == project_id).first()
             if project is None:
-                raise Exception("Project not found")
-
+                raise ValueError("Project not found")
             project.status = status
-
-            db.commit()
-
-            db.refresh(project)
-
-            return {
-                "id": str(project.id),
-                "status": project.status
-            }
-
-        finally:
-
-            db.close()
+            db.flush()
+            return {"id": str(project.id), "status": project.status}
 
     def link_approval_to_project(self, project_id, approval_id):
-
-        db = SessionLocal()
-
-        try:
-
+        with get_session() as db:
             db.execute(
-                text(
-                    """
+                text("""
                     UPDATE approval_requests
-                    SET project_id = CAST(:project_id AS UUID)
+                    SET related_project_id = CAST(:project_id AS UUID), updated_at = NOW()
                     WHERE id = CAST(:approval_id AS UUID)
-                    """
-                ),
-                {
-                    "project_id": project_id,
-                    "approval_id": approval_id
-                }
+                """),
+                {"project_id": str(project_id), "approval_id": str(approval_id)},
             )
-
-            db.commit()
-
-            return {
-                "project_id": project_id,
-                "approval_id": approval_id
-            }
-
-        finally:
-
-            db.close()
 
     def get_project_approvals(self, project_id):
-
-        db = SessionLocal()
-
-        try:
-
+        with get_session() as db:
             result = db.execute(
-                text(
-                    """
-                    SELECT
-                        id,
-                        action_type,
-                        status,
-                        execution_status
+                text("""
+                    SELECT id, action_type, status, execution_status, risk_level, created_at
                     FROM approval_requests
-                    WHERE project_id = CAST(:project_id AS UUID)
-                    ORDER BY requested_at
-                    """
-                ),
-                {
-                    "project_id": project_id
-                }
+                    WHERE related_project_id = CAST(:project_id AS UUID)
+                    ORDER BY created_at
+                """),
+                {"project_id": str(project_id)},
             )
-
-            return [
-                dict(row._mapping)
-                for row in result
-            ]
-
-        finally:
-
-            db.close()
+            return [dict(row._mapping) for row in result]
 
     def get_project_tasks(self, project_id):
-
-        db = SessionLocal()
-
-        try:
-
+        with get_session() as db:
             result = db.execute(
-                text(
-                    """
-                    SELECT
-                        id,
-                        title,
-                        status
+                text("""
+                    SELECT id, title, status, priority, due_date, created_at
                     FROM tasks
                     WHERE project_id = CAST(:project_id AS UUID)
-                    ORDER BY created_at
-                    """
-                ),
-                {
-                    "project_id": project_id
-                }
+                    ORDER BY priority DESC, created_at
+                """),
+                {"project_id": str(project_id)},
             )
-
-            return [
-                dict(row._mapping)
-                for row in result
-            ]
-
-        finally:
-
-            db.close()
-
-    def get_task_approvals(self, task_id):
-
-        db = SessionLocal()
-
-        try:
-
-            result = db.execute(
-                text(
-                    """
-                    SELECT
-                        id,
-                        action_type,
-                        status,
-                        execution_status
-                    FROM approval_requests
-                    WHERE task_id = CAST(:task_id AS UUID)
-                    ORDER BY requested_at
-                    """
-                ),
-                {
-                    "task_id": task_id
-                }
-            )
-
-            return [
-                dict(row._mapping)
-                for row in result
-            ]
-
-        finally:
-
-            db.close()
+            return [dict(row._mapping) for row in result]
 
     def get_project_events(self, project_id):
-
-        db = SessionLocal()
-
-        try:
-
+        with get_session() as db:
             result = db.execute(
-                text(
-                    """
-                    SELECT
-                        event_type,
-                        created_at
+                text("""
+                    SELECT event_type, payload, created_at
                     FROM domain_events
                     WHERE aggregate_id = CAST(:project_id AS UUID)
                     ORDER BY created_at
-                    """
-                ),
-                {
-                    "project_id": project_id
-                }
+                """),
+                {"project_id": str(project_id)},
             )
-
-            return [
-                dict(row._mapping)
-                for row in result
-            ]
-
-        finally:
-
-            db.close()
+            return [dict(row._mapping) for row in result]

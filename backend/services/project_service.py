@@ -6,11 +6,11 @@ from backend.repositories.event_repository import (
     EventRepository
 )
 
-from backend.events.project_events import (
+from backend.events import (
     PROJECT_CREATED,
     PROJECT_STATUS_CHANGED,
     PROJECT_APPROVAL_LINKED,
-    PROJECT_BRIEFING_GENERATED
+    PROJECT_BRIEFING_GENERATED,
 )
 
 

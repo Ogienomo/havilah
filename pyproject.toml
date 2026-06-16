@@ -1,0 +1,86 @@
+[project]
+name = "havilah-os"
+version = "0.1.0"
+description = "Havilah OS — AI Executive Operating System for Havilah Learning Hub"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Proprietary"}
+authors = [
+    {name = "Havilah Learning Hub"},
+]
+
+dependencies = [
+    # ── Database ──────────────────────────────────────────
+    "sqlalchemy>=2.0,<3.0",
+    "psycopg2-binary>=2.9,<3.0",
+    "asyncpg>=0.29,<1.0",
+
+    # ── Data Validation ───────────────────────────────────
+    "pydantic>=2.0,<3.0",
+    "pydantic-settings>=2.0,<3.0",
+
+    # ── Configuration ─────────────────────────────────────
+    "python-dotenv>=1.0,<2.0",
+
+    # ── Migrations ────────────────────────────────────────
+    "alembic>=1.13,<2.0",
+
+    # ── Utilities ─────────────────────────────────────────
+    "python-dateutil>=2.8,<3.0",
+]
+
+[project.optional-dependencies]
+api = [
+    # ── API Layer (Phase C) ───────────────────────────────
+    "fastapi>=0.109,<1.0",
+    "uvicorn[standard]>=0.27,<1.0",
+    "python-multipart>=0.0.6",
+]
+auth = [
+    # ── Authentication (Phase C) ──────────────────────────
+    "passlib[bcrypt]>=1.7,<2.0",
+    "python-jose[cryptography]>=3.3,<4.0",
+]
+ai = [
+    # ── AI / LLM Integration (Phase D) ───────────────────
+    "openai>=1.0,<2.0",
+    "anthropic>=0.18,<1.0",
+    "tiktoken>=0.6,<1.0",
+]
+search = [
+    # ── Semantic Search (Phase B) ─────────────────────────
+    "pgvector>=0.2,<1.0",
+    "sentence-transformers>=2.3,<3.0",
+]
+dev = [
+    # ── Development ───────────────────────────────────────
+    "pytest>=8.0,<9.0",
+    "pytest-asyncio>=0.23,<1.0",
+    "pytest-cov>=4.0,<5.0",
+    "httpx>=0.27,<1.0",
+    "ruff>=0.2,<1.0",
+    "mypy>=1.8,<2.0",
+    "ipython>=8.0,<9.0",
+]
+all = [
+    "havilah-os[api,auth,ai,search,dev]",
+]
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+asyncio_mode = "auto"

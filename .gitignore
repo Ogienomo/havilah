@@ -1,35 +1,47 @@
 # Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
 
-# Virtual Environment
+# Virtual environments
 .venv/
 venv/
+env/
 
-# Environment Variables
+# Environment variables
 .env
 
-# VS Code
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Logs
-*.log
-
-# Mac/Linux junk
-.DS_Store
-
-# Pytest
+# Testing
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Migrations cache
+# Alembic
 alembic/versions/__pycache__/
 
 # Database dumps
 *.sql
 *.dump
 
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Build artifacts
-dist/
-build/
+*.pyc
