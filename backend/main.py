@@ -85,17 +85,9 @@ async def _background_seeding() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: kick off background seeding, then accept traffic immediately."""
-    logger.info("Havilah OS starting up...")
-    # Schedule seeding in the background — don't block uvicorn from serving /health
-    seeding_task = asyncio.create_task(_background_seeding())
+    """Diagnostic: empty lifespan to verify uvicorn starts and /health responds."""
+    logger.info("Havilah OS starting up (diagnostic mode — no seeding)...")
     yield
-    # On shutdown, cancel any still-running seeding
-    seeding_task.cancel()
-    try:
-        await seeding_task
-    except asyncio.CancelledError:
-        pass
     logger.info("Havilah OS shutting down...")
 
 
