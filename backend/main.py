@@ -21,18 +21,14 @@ Architecture:
 import time
 import logging
 import asyncio
-import functools
-import sys
 from contextlib import asynccontextmanager
 
-print("[DIAG] main.py: importing fastapi...", flush=True)
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-print("[DIAG] main.py: importing settings...", flush=True)
+
 from backend.config.settings import get_settings
 
 settings = get_settings()
-print(f"[DIAG] main.py: settings loaded. env={settings.ENVIRONMENT} db_host={settings.DB_HOST} openai_set={bool(settings.OPENAI_API_KEY)}", flush=True)
 
 # ── Configure Structured Logging ────────────────────────────────
 from backend.core.logging_config import configure_logging, get_logger
@@ -88,12 +84,20 @@ async def _background_seeding() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Diagnostic: empty lifespan to verify uvicorn starts and /health responds."""
-    print("[DIAG] lifespan: starting", flush=True)
-    logger.info("Havilah OS starting up (diagnostic mode — no seeding)...")
-    print("[DIAG] lifespan: yielding", flush=True)
+    """Startup: kick off background seeding, then accept traffic immediately.
+
+    Seeding runs in a background task so uvicorn can serve /health
+    immediately. Each step has a hard 30s timeout so a hung DB call
+    cannot block the app indefinitely.
+    """
+    logger.info("Havilah OS starting up...")
+    seeding_task = asyncio.create_task(_background_seeding())
     yield
-    print("[DIAG] lifespan: shutting down", flush=True)
+    seeding_task.cancel()
+    try:
+        await seeding_task
+    except asyncio.CancelledError:
+        pass
     logger.info("Havilah OS shutting down...")
 
 
@@ -167,49 +171,27 @@ def get_metrics():
 
 
 # ── Register API Routers ────────────────────────────────────────
-print("[DIAG] main.py: importing routers...", flush=True)
 from backend.api.projects import router as projects_router
-print("[DIAG]   projects OK", flush=True)
 from backend.api.tasks import router as tasks_router
-print("[DIAG]   tasks OK", flush=True)
 from backend.api.approvals import router as approvals_router
-print("[DIAG]   approvals OK", flush=True)
 from backend.api.contacts import router as contacts_router
-print("[DIAG]   contacts OK", flush=True)
 from backend.api.memory import router as memory_router
-print("[DIAG]   memory OK", flush=True)
 from backend.api.workflows import router as workflows_router
-print("[DIAG]   workflows OK", flush=True)
 from backend.api.agents import router as agents_router
-print("[DIAG]   agents OK", flush=True)
 from backend.api.meetings import router as meetings_router
-print("[DIAG]   meetings OK", flush=True)
 from backend.api.knowledge import router as knowledge_router
-print("[DIAG]   knowledge OK", flush=True)
 from backend.api.research import router as research_router
-print("[DIAG]   research OK", flush=True)
 from backend.api.content import router as content_router
-print("[DIAG]   content OK", flush=True)
 from backend.api.notifications import router as notifications_router
-print("[DIAG]   notifications OK", flush=True)
 from backend.api.analytics import router as analytics_router
-print("[DIAG]   analytics OK", flush=True)
 from backend.api.organizations import router as organizations_router
-print("[DIAG]   organizations OK", flush=True)
 from backend.api.events import router as events_router
-print("[DIAG]   events OK", flush=True)
 from backend.api.risk import router as risk_router
-print("[DIAG]   risk OK", flush=True)
 from backend.api.briefings import router as briefings_router
-print("[DIAG]   briefings OK", flush=True)
 from backend.api.search import router as search_router
-print("[DIAG]   search OK", flush=True)
 from backend.api.auth_routes import router as auth_router
-print("[DIAG]   auth_routes OK", flush=True)
 from backend.api.whatsapp import router as whatsapp_router
-print("[DIAG]   whatsapp OK", flush=True)
 from backend.api.hermes import router as hermes_router
-print("[DIAG]   hermes OK — all routers imported", flush=True)
 
 # Auth routes (no auth guard — these are the entry point)
 app.include_router(auth_router)
@@ -235,6 +217,3 @@ app.include_router(briefings_router)
 app.include_router(search_router)
 app.include_router(whatsapp_router)
 app.include_router(hermes_router)
-
-print(f"[DIAG] main.py: module fully loaded. {len(app.routes)} routes registered.", flush=True)
-print("[DIAG] main.py: handing off to uvicorn.", flush=True)
