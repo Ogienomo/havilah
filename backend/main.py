@@ -20,6 +20,8 @@ Architecture:
 
 import time
 import logging
+import asyncio
+import functools
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -36,29 +38,64 @@ logger = get_logger("main")
 
 # ── Application Lifespan ────────────────────────────────────────
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Startup: seed RBAC, WhatsApp templates, configure logging. Shutdown: cleanup."""
-    logger.info("Havilah OS starting up...")
+# Max wall-clock seconds for each blocking startup task.
+# If a DB call hangs (e.g. SSL handshake stuck), we move on rather than
+# block uvicorn from accepting healthcheck requests.
+_STARTUP_TASK_TIMEOUT = 30
+
+
+async def _run_blocking_with_timeout(func, label: str) -> None:
+    """Run a blocking callable in a worker thread with an asyncio timeout."""
     try:
+        await asyncio.wait_for(
+            asyncio.get_event_loop().run_in_executor(None, func),
+            timeout=_STARTUP_TASK_TIMEOUT,
+        )
+        logger.info(f"{label} complete")
+    except asyncio.TimeoutError:
+        logger.warning(f"{label} timed out after {_STARTUP_TASK_TIMEOUT}s — skipping")
+    except Exception as e:
+        logger.warning(f"{label} skipped (DB not available?): {e}")
+
+
+async def _background_seeding() -> None:
+    """Run all DB seeding steps in the background after the app is up.
+
+    This ensures uvicorn can accept /health requests immediately without
+    waiting for DB-dependent seeding to complete (or time out).
+    """
+    # RBAC roles & permissions
+    def _seed_rbac():
         from backend.api.middleware import seed_roles_and_permissions
         seed_roles_and_permissions()
-        logger.info("RBAC seeding complete")
-    except Exception as e:
-        logger.warning(f"RBAC seeding skipped (DB not available?): {e}")
-    try:
+    await _run_blocking_with_timeout(_seed_rbac, "RBAC seeding")
+
+    # WhatsApp default templates
+    def _seed_whatsapp():
         from backend.services.whatsapp_service import WhatsAppService
         WhatsAppService().seed_default_templates()
-        logger.info("WhatsApp templates seeded")
-    except Exception as e:
-        logger.warning(f"WhatsApp template seeding skipped: {e}")
-    try:
+    await _run_blocking_with_timeout(_seed_whatsapp, "WhatsApp template seeding")
+
+    # Hermes agent registry
+    def _seed_agents():
         from backend.hermes.agent_registry import AgentRegistry
         AgentRegistry().seed_database()
-        logger.info("Hermes agent registry seeded")
-    except Exception as e:
-        logger.warning(f"Hermes agent registry seeding skipped: {e}")
+    await _run_blocking_with_timeout(_seed_agents, "Hermes agent registry seeding")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: kick off background seeding, then accept traffic immediately."""
+    logger.info("Havilah OS starting up...")
+    # Schedule seeding in the background — don't block uvicorn from serving /health
+    seeding_task = asyncio.create_task(_background_seeding())
     yield
+    # On shutdown, cancel any still-running seeding
+    seeding_task.cancel()
+    try:
+        await seeding_task
+    except asyncio.CancelledError:
+        pass
     logger.info("Havilah OS shutting down...")
 
 
