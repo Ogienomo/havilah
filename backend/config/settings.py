@@ -41,6 +41,12 @@ class Settings:
     OPENAI_BASE_URL: str = ""  # Optional: custom endpoint/proxy for region-restricted access
     HERMES_ENABLED: bool = True  # Master switch for Hermes orchestration
 
+    # ── CORS ────────────────────────────────────────────────
+    # Comma-separated list of allowed CORS origins for the dashboard.
+    # Example: "https://havilah.vercel.app,https://dashboard.havilah.os"
+    # If empty, falls back to environment-based defaults (see core/security.py).
+    CORS_ORIGINS: str = ""
+
     # ── WhatsApp Business API ─────────────────────────────────
     WHATSAPP_VERIFY_TOKEN: str = "change-me-verify-token"
     WHATSAPP_ACCESS_TOKEN: str = ""
@@ -89,6 +95,7 @@ def get_settings() -> Settings:
         OPENAI_TEMPERATURE=float(os.getenv("HAVILAH_OPENAI_TEMPERATURE", "0.7")),
         OPENAI_BASE_URL=os.getenv("HAVILAH_OPENAI_BASE_URL", ""),
         HERMES_ENABLED=os.getenv("HAVILAH_HERMES_ENABLED", "true").lower() == "true",
+        CORS_ORIGINS=os.getenv("HAVILAH_CORS_ORIGINS", ""),
         WHATSAPP_VERIFY_TOKEN=os.getenv("HAVILAH_WHATSAPP_VERIFY_TOKEN", "change-me-verify-token"),
         WHATSAPP_ACCESS_TOKEN=os.getenv("HAVILAH_WHATSAPP_ACCESS_TOKEN", ""),
         WHATSAPP_PHONE_NUMBER_ID=os.getenv("HAVILAH_WHATSAPP_PHONE_NUMBER_ID", ""),

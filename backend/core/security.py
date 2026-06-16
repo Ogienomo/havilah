@@ -262,9 +262,21 @@ def validate_phone_number(phone: str) -> bool:
 def get_cors_origins(environment: str) -> list[str]:
     """Get allowed CORS origins based on environment.
 
+    Priority:
+      1. HAVILAH_CORS_ORIGINS env var (comma-separated) — recommended for Railway
+         Example: "https://havilah.vercel.app,https://dashboard.havilah.os"
+      2. Environment-based defaults below
+
     Production: Only explicitly allowed domains
     Development: localhost variants
     """
+    # 1. Honor explicit env var override (recommended for Railway deployments)
+    from backend.config.settings import get_settings
+    settings = get_settings()
+    if settings.CORS_ORIGINS:
+        return [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
+
+    # 2. Fall back to environment-based defaults
     if environment == "production":
         return [
             "https://havilah.com",
