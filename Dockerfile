@@ -42,12 +42,15 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     HAVILAH_ENV=production
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Expose port
+# Default port (Railway injects PORT env var at runtime)
+ENV PORT=8000
 EXPOSE 8000
 
-# Run with uvicorn
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# Health check (uses $PORT so it works regardless of injected port)
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+# Run with uvicorn — shell form so $PORT is expanded at runtime
+# Railway overrides this with the startCommand in railway.json,
+# but this CMD makes the image runnable standalone too (e.g. fly.io, local docker)
+CMD sh -c 'uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 4'
