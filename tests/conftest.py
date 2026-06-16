@@ -190,8 +190,6 @@ def _seed_test_users():
 def setup_database():
     """Create all tables once per test session."""
     Base.metadata.create_all(bind=engine)
-    # Note: User seeding is done per-test in test_auth.py where needed,
-    # because SQLite doesn't support UUID type natively.
     yield
     Base.metadata.drop_all(bind=engine)
 

@@ -14,8 +14,11 @@ Architecture:
   - CQRS-lite (Commands, Events, Consumers)
   - RBAC (admin, operator, viewer, agent)
   - Human-only approval gates (agents NEVER approve/execute)
+  - WhatsApp Business API integration
+  - Rate limiting, security headers, structured logging
 """
 
+import time
 import logging
 from contextlib import asynccontextmanager
 
@@ -25,13 +28,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config.settings import get_settings
 
 settings = get_settings()
-logger = logging.getLogger("havilah")
+
+# ── Configure Structured Logging ────────────────────────────────
+from backend.core.logging_config import configure_logging, get_logger
+configure_logging(environment=settings.ENVIRONMENT, level="DEBUG" if settings.DEBUG else "INFO")
+logger = get_logger("main")
 
 # ── Application Lifespan ────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Startup: seed RBAC roles/permissions. Shutdown: cleanup."""
+    """Startup: seed RBAC, WhatsApp templates, configure logging. Shutdown: cleanup."""
     logger.info("Havilah OS starting up...")
     try:
         from backend.api.middleware import seed_roles_and_permissions
@@ -62,21 +69,30 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ── CORS ──────────────────────────────────────────────────────
+# ── Security Headers Middleware ──────────────────────────────────
+from backend.core.security import SecurityHeadersMiddleware, RateLimitMiddleware, get_cors_origins
+app.add_middleware(SecurityHeadersMiddleware)
+
+# ── Rate Limiting Middleware ─────────────────────────────────────
+app.add_middleware(RateLimitMiddleware)
+
+# ── CORS ────────────────────────────────────────────────────────
+cors_origins = get_cors_origins(settings.ENVIRONMENT) if not settings.DEBUG else ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.DEBUG else [],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Audit Middleware ──────────────────────────────────────────
+# ── Audit Middleware ─────────────────────────────────────────────
 from backend.api.middleware import AuditMiddleware
 app.add_middleware(AuditMiddleware)
 
 
-# ── Health Check ──────────────────────────────────────────────
+# ── Health Check ────────────────────────────────────────────────
+
 @app.get("/", tags=["System"])
 def root():
     return {
@@ -94,7 +110,22 @@ def health_check():
     return {"status": "healthy", "auth": "enabled"}
 
 
-# ── Register API Routers ─────────────────────────────────────
+@app.get("/health/detailed", tags=["System"])
+def detailed_health_check():
+    """Detailed health check with system metrics and dependency status."""
+    from backend.core.monitoring import HealthChecker
+    checker = HealthChecker()
+    return checker.full_health_check()
+
+
+@app.get("/metrics", tags=["System"])
+def get_metrics():
+    """Application metrics for monitoring dashboards."""
+    from backend.core.monitoring import get_metrics as get_metrics_collector
+    return get_metrics_collector().get_metrics()
+
+
+# ── Register API Routers ────────────────────────────────────────
 from backend.api.projects import router as projects_router
 from backend.api.tasks import router as tasks_router
 from backend.api.approvals import router as approvals_router

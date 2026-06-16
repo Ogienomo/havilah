@@ -52,7 +52,7 @@ class InteractiveButton(BaseModel):
 class SendInteractiveRequest(BaseModel):
     phone_number: str = Field(..., min_length=1)
     body_text: str = Field(..., min_length=1, max_length=1024)
-    buttons: list[InteractiveButton] = Field(..., min_items=1, max_items=3)
+    buttons: list[InteractiveButton] = Field(..., min_length=1, max_length=3)
     header_text: Optional[str] = None
     footer_text: Optional[str] = None
     approval_id: Optional[str] = None
