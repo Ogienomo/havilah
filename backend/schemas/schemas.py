@@ -529,3 +529,54 @@ class ExecutiveBriefingResponse(BaseModel):
     project_status_breakdown: Optional[list] = None
     task_status_breakdown: Optional[list] = None
     recent_events: Optional[list] = None
+
+
+# ════════════════════════════════════════════════════════════════
+#  WHATSAPP
+# ════════════════════════════════════════════════════════════════
+
+class WhatsAppSessionResponse(BaseModel):
+    id: UUID
+    phone_number: str
+    whatsapp_id: Optional[str] = None
+    user_id: Optional[UUID] = None
+    contact_id: Optional[UUID] = None
+    status: str = "active"
+    language: str = "en"
+    message_count: int = 0
+    opted_in: bool = False
+    created_at: Optional[datetime] = None
+
+class WhatsAppMessageResponse(BaseModel):
+    id: UUID
+    session_id: UUID
+    direction: str
+    message_type: str
+    status: str
+    content_body: Optional[str] = None
+    template_name: Optional[str] = None
+    whatsapp_message_id: Optional[str] = None
+    related_entity_type: Optional[str] = None
+    related_entity_id: Optional[UUID] = None
+    approval_id: Optional[UUID] = None
+    created_at: Optional[datetime] = None
+
+class WhatsAppTemplateResponse(BaseModel):
+    id: UUID
+    name: str
+    category: str
+    language: str
+    body_text: str
+    status: str = "draft"
+    use_count: int = 0
+    created_at: Optional[datetime] = None
+
+class WhatsAppApprovalVoteResponse(BaseModel):
+    id: UUID
+    session_id: UUID
+    approval_id: UUID
+    vote: str
+    vote_source: str
+    confidence: Optional[float] = None
+    processed: bool = False
+    created_at: Optional[datetime] = None

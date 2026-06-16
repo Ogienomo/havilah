@@ -37,6 +37,12 @@ from backend.models.agent import Agent, AgentRun, AgentResult
 from backend.models.notification import Notification, NotificationDelivery
 from backend.models.event import DomainEvent
 from backend.models.user import User, Role, Permission, UserRole, RolePermission
+from backend.models.whatsapp import (
+    WhatsAppSession,
+    WhatsAppMessage,
+    WhatsAppTemplate,
+    WhatsAppApprovalVote,
+)
 
 __all__ = [
     # Organization
@@ -69,4 +75,6 @@ __all__ = [
     "DomainEvent",
     # Identity
     "User", "Role", "Permission", "UserRole", "RolePermission",
+    # WhatsApp
+    "WhatsAppSession", "WhatsAppMessage", "WhatsAppTemplate", "WhatsAppApprovalVote",
 ]

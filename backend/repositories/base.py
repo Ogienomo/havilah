@@ -78,4 +78,8 @@ SAFE_TABLE_NAMES = frozenset({
     "permissions",
     "user_roles",
     "role_permissions",
+    "whatsapp_sessions",
+    "whatsapp_messages",
+    "whatsapp_templates",
+    "whatsapp_approval_votes",
 })

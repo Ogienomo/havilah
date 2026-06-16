@@ -29,6 +29,7 @@ from backend.services.meeting_service import MeetingService
 from backend.services.knowledge_service import KnowledgeService
 from backend.services.research_service import ResearchService
 from backend.services.content_service import ContentService
+from backend.services.whatsapp_service import WhatsAppService
 
 
 def get_approval_service() -> ApprovalService:
@@ -84,3 +85,6 @@ def get_research_service() -> ResearchService:
 
 def get_content_service() -> ContentService:
     return ContentService()
+
+def get_whatsapp_service() -> WhatsAppService:
+    return WhatsAppService()

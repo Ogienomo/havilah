@@ -153,6 +153,13 @@ PERMISSIONS = {
     Permission("user", "read"),
     Permission("user", "update"),
     Permission("user", "manage_roles"),
+
+    # WhatsApp
+    Permission("whatsapp", "send_message"),
+    Permission("whatsapp", "read_messages"),
+    Permission("whatsapp", "manage_sessions"),
+    Permission("whatsapp", "manage_templates"),
+    Permission("whatsapp", "send_approval"),
 }
 
 
@@ -190,6 +197,7 @@ ROLE_PERMISSIONS: dict[RoleName, set[str]] = {
         "risk:calculate", "risk:read",
         "briefing:read",
         "search:read",
+        "whatsapp:send_message", "whatsapp:read_messages", "whatsapp:send_approval",
     },
     RoleName.VIEWER: {
         # Viewer: read-only across all resources
@@ -211,6 +219,7 @@ ROLE_PERMISSIONS: dict[RoleName, set[str]] = {
         "risk:read",
         "briefing:read",
         "search:read",
+        "whatsapp:read_messages",
     },
     RoleName.AGENT: {
         # Agent: can read and draft, NEVER approve/execute
@@ -233,6 +242,7 @@ ROLE_PERMISSIONS: dict[RoleName, set[str]] = {
         "risk:calculate", "risk:read",
         "briefing:read",
         "search:read",
+        "whatsapp:read_messages",
     },
 }
 

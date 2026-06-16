@@ -39,6 +39,12 @@ async def lifespan(app: FastAPI):
         logger.info("RBAC seeding complete")
     except Exception as e:
         logger.warning(f"RBAC seeding skipped (DB not available?): {e}")
+    try:
+        from backend.services.whatsapp_service import WhatsAppService
+        WhatsAppService().seed_default_templates()
+        logger.info("WhatsApp templates seeded")
+    except Exception as e:
+        logger.warning(f"WhatsApp template seeding skipped: {e}")
     yield
     logger.info("Havilah OS shutting down...")
 
@@ -108,6 +114,7 @@ from backend.api.risk import router as risk_router
 from backend.api.briefings import router as briefings_router
 from backend.api.search import router as search_router
 from backend.api.auth_routes import router as auth_router
+from backend.api.whatsapp import router as whatsapp_router
 
 # Auth routes (no auth guard — these are the entry point)
 app.include_router(auth_router)
@@ -131,3 +138,4 @@ app.include_router(events_router)
 app.include_router(risk_router)
 app.include_router(briefings_router)
 app.include_router(search_router)
+app.include_router(whatsapp_router)

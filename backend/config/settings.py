@@ -33,6 +33,15 @@ class Settings:
     SECRET_KEY: str = "change-me-in-production"
     API_KEY_SALT: str = "change-me-in-production"
 
+    # ── WhatsApp Business API ─────────────────────────────────
+    WHATSAPP_VERIFY_TOKEN: str = "change-me-verify-token"
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_BUSINESS_ACCOUNT_ID: str = ""
+    WHATSAPP_API_VERSION: str = "v21.0"
+    WHATSAPP_WEBHOOK_URL: str = "/api/whatsapp/webhook"
+    WHATSAPP_ENABLED: bool = False  # Enable/disable WhatsApp integration
+
     # ── Derived ───────────────────────────────────────────────
     @property
     def DATABASE_URL(self) -> str:
@@ -66,4 +75,11 @@ def get_settings() -> Settings:
         ENVIRONMENT=os.getenv("HAVILAH_ENV", "development"),
         SECRET_KEY=os.getenv("HAVILAH_SECRET_KEY", "change-me-in-production"),
         API_KEY_SALT=os.getenv("HAVILAH_API_KEY_SALT", "change-me-in-production"),
+        WHATSAPP_VERIFY_TOKEN=os.getenv("HAVILAH_WHATSAPP_VERIFY_TOKEN", "change-me-verify-token"),
+        WHATSAPP_ACCESS_TOKEN=os.getenv("HAVILAH_WHATSAPP_ACCESS_TOKEN", ""),
+        WHATSAPP_PHONE_NUMBER_ID=os.getenv("HAVILAH_WHATSAPP_PHONE_NUMBER_ID", ""),
+        WHATSAPP_BUSINESS_ACCOUNT_ID=os.getenv("HAVILAH_WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
+        WHATSAPP_API_VERSION=os.getenv("HAVILAH_WHATSAPP_API_VERSION", "v21.0"),
+        WHATSAPP_WEBHOOK_URL=os.getenv("HAVILAH_WHATSAPP_WEBHOOK_URL", "/api/whatsapp/webhook"),
+        WHATSAPP_ENABLED=os.getenv("HAVILAH_WHATSAPP_ENABLED", "false").lower() == "true",
     )

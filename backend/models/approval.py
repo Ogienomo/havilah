@@ -87,6 +87,8 @@ class ApprovalRequest(UUIDPrimaryKeyMixin, TimestampMixin, MetadataMixin, Base):
     execution_records = relationship("ExecutionRecord", back_populates="approval_request", lazy="selectin")
     risk_assessment = relationship("RiskAssessment", foreign_keys=[risk_assessment_id], back_populates="approval_requests")
     communications = relationship("CommunicationHistory", back_populates="approval")
+    whatsapp_messages = relationship("WhatsAppMessage", back_populates="approval", lazy="selectin")
+    whatsapp_votes = relationship("WhatsAppApprovalVote", back_populates="approval", lazy="selectin")
 
 
 class ApprovalDecision(UUIDPrimaryKeyMixin, TimestampMixin, Base):
