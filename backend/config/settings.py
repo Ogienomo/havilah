@@ -56,6 +56,15 @@ class Settings:
     WHATSAPP_WEBHOOK_URL: str = "/api/whatsapp/webhook"
     WHATSAPP_ENABLED: bool = False  # Enable/disable WhatsApp integration
 
+    # ── Telegram Bot API ──────────────────────────────────────
+    # Get token from @BotFather → /newbot
+    TELEGRAM_BOT_TOKEN: str = ""
+    # Optional shared secret — Telegram will send it back in the
+    # X-Telegram-Bot-Api-Secret-Token header on every webhook call.
+    # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+    TELEGRAM_ENABLED: bool = False  # Master switch — set true once token is configured
+
     # ── Derived ───────────────────────────────────────────────
     @property
     def DATABASE_URL(self) -> str:
@@ -103,4 +112,7 @@ def get_settings() -> Settings:
         WHATSAPP_API_VERSION=os.getenv("HAVILAH_WHATSAPP_API_VERSION", "v21.0"),
         WHATSAPP_WEBHOOK_URL=os.getenv("HAVILAH_WHATSAPP_WEBHOOK_URL", "/api/whatsapp/webhook"),
         WHATSAPP_ENABLED=os.getenv("HAVILAH_WHATSAPP_ENABLED", "false").lower() == "true",
+        TELEGRAM_BOT_TOKEN=os.getenv("HAVILAH_TELEGRAM_BOT_TOKEN", ""),
+        TELEGRAM_WEBHOOK_SECRET=os.getenv("HAVILAH_TELEGRAM_WEBHOOK_SECRET", ""),
+        TELEGRAM_ENABLED=os.getenv("HAVILAH_TELEGRAM_ENABLED", "false").lower() == "true",
     )
