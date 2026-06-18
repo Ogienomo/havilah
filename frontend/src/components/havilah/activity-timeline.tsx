@@ -175,15 +175,15 @@ export function ActivityTimeline() {
         )}
 
         {state === "live" && (
-          <ScrollArea className="max-h-96">
+          <ScrollArea className="max-h-[28rem]">
             <motion.div
               variants={container}
               initial="hidden"
               animate="show"
-              className="relative"
+              className="relative pr-1"
             >
               {/* Timeline line */}
-              <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border" />
+              <div className="absolute left-[15px] top-3 bottom-3 w-px bg-border" />
 
               <div className="space-y-1">
                 {events.map((event, idx) => {
@@ -205,7 +205,7 @@ export function ActivityTimeline() {
                     <motion.div
                       key={`${event.aggregate_id}-${idx}`}
                       variants={itemAnim}
-                      className="relative flex gap-3 px-1 py-2"
+                      className="relative flex gap-3 px-1 py-2.5"
                     >
                       {/* Timeline dot */}
                       <div
@@ -221,9 +221,9 @@ export function ActivityTimeline() {
                       </div>
 
                       {/* Content */}
-                      <div className="flex-1 space-y-0.5 pb-2">
+                      <div className="flex-1 space-y-1 pb-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-medium text-foreground">
+                          <p className="text-sm font-medium text-foreground leading-snug">
                             {meta.label}
                           </p>
                           <span

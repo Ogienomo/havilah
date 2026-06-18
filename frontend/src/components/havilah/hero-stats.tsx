@@ -154,26 +154,26 @@ export function HeroStats() {
       variants={container}
       initial="hidden"
       animate="show"
-      className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+      className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4"
     >
       {stats.map((stat) => (
         <motion.div key={stat.label} variants={item}>
           <Card className="group relative overflow-hidden border-border bg-card transition-all duration-300 hover:border-havilah-gold/30 hover:shadow-lg hover:shadow-havilah-gold/5">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <p className="text-xs font-medium text-muted-foreground sm:text-sm">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-2 min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                     {stat.label}
                   </p>
-                  <p className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  <p className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                     {stat.value}
                   </p>
                   <div className="flex items-center gap-1.5">
                     <span className={`h-1.5 w-1.5 rounded-full ${stat.dotColor}`} />
-                    <span className="text-xs text-muted-foreground">{stat.change}</span>
+                    <span className="text-xs text-muted-foreground truncate">{stat.change}</span>
                   </div>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-havilah-gold/10 text-havilah-gold transition-colors group-hover:bg-havilah-gold/20 sm:h-12 sm:w-12">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-havilah-gold/10 text-havilah-gold transition-colors group-hover:bg-havilah-gold/20 sm:h-12 sm:w-12">
                   {stat.icon}
                 </div>
               </div>

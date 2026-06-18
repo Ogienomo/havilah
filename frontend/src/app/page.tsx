@@ -19,7 +19,7 @@ export default function Home() {
       <Header />
 
       {/* Main Content */}
-      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         {/* Hero Stats */}
         <section aria-label="Key metrics">
           <HeroStats />

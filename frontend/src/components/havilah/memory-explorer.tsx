@@ -208,14 +208,14 @@ export function MemoryExplorer() {
         )}
 
         {state === "live" && (
-          <ScrollArea className="max-h-96">
-            <div className="space-y-2">
+          <ScrollArea className="max-h-[28rem]">
+            <div className="space-y-2.5 pr-1">
               {results.map((item, idx) => {
                 const id = (item as any).id ?? (item as any).memory_id ?? `mem-${idx}`
                 return (
                   <div
                     key={id}
-                    className="rounded-lg border border-border bg-background p-3 transition-colors hover:border-havilah-gold/20"
+                    className="rounded-lg border border-border bg-background p-3.5 transition-colors hover:border-havilah-gold/20"
                   >
                     <div className="flex flex-col gap-2">
                       <div className="flex flex-wrap items-center gap-1.5">
@@ -237,7 +237,7 @@ export function MemoryExplorer() {
                       </div>
 
                       {item.title && (
-                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="text-sm font-medium text-foreground leading-snug">{item.title}</p>
                       )}
 
                       {item.content && (
@@ -247,7 +247,7 @@ export function MemoryExplorer() {
                       )}
 
                       {item.tags && item.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1 pt-1">
                           {item.tags.map((tag) => (
                             <span
                               key={tag}

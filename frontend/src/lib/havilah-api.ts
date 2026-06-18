@@ -132,22 +132,56 @@ export interface HermesStep {
   result?: string
 }
 
+/** A single step's execution result returned in HermesInstructionResponse.results */
+export interface HermesResult {
+  step_number: number
+  agent: string
+  action: string
+  status: "success" | "failed" | string
+  output: string
+  tokens?: number
+  requires_approval?: boolean
+  approval?: {
+    approval_id: string
+    current_state?: string
+    [key: string]: any
+  }
+  error?: string
+}
+
 export interface HermesInstructionResponse {
   run_id: string
-  status: string
+  status:
+    | "pending"
+    | "planning"
+    | "executing"
+    | "awaiting_approval"
+    | "completed"
+    | "failed"
+    | "cancelled"
+    | string
   plan: {
-    plan_id: string
+    plan_id?: string
     summary: string
     requires_any_approval: boolean
     steps: HermesStep[]
   }
-  results?: string[]
-  memory_captured?: boolean
+  /** Array of step result objects (NOT strings — each has .output, .agent, .status) */
+  results?: HermesResult[]
+  summary?: string
+  approval_needed?: boolean
+  approval_id?: string | null
+  /** NOTE: Backend returns this as `null` even when approval is needed — use `approval_needed` instead */
   awaiting_approval?: {
     approval_id: string
     step: HermesStep
-  }
-  message: string
+  } | null
+  memory_recorded?: any
+  memory_captured?: boolean
+  elapsed_seconds?: number
+  message?: string
+  error?: string
+  reason?: string
 }
 
 export interface Approval {

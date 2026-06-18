@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { havilahApi, ActivityEvent, isApiConfigured, ApiError } from "@/lib/havilah-api"
-import { Check, X, Clock, AlertTriangle, RefreshCw, AlertCircle } from "lucide-react"
+import { Check, X, Clock, AlertTriangle, RefreshCw, AlertCircle, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
 
@@ -188,9 +188,9 @@ export function ApprovalQueue() {
         )}
 
         {state === "live" && (
-          <ScrollArea className="max-h-96">
+          <ScrollArea className="max-h-[28rem]">
             <AnimatePresence mode="popLayout">
-              <div className="space-y-3">
+              <div className="space-y-3 pr-1">
                 {items.map((item) => {
                   const actionType = item.payload?.action_type ?? "administrative"
                   const summary = item.payload?.summary ?? "Unknown action"
@@ -204,58 +204,64 @@ export function ApprovalQueue() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 20, height: 0, marginBottom: 0 }}
                       transition={{ duration: 0.3 }}
-                      className="rounded-lg border border-border bg-background p-3 sm:p-4 transition-colors hover:border-havilah-gold/20"
+                      className="rounded-lg border border-border bg-background p-4 transition-colors hover:border-havilah-gold/20"
                     >
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div className="flex-1 space-y-2">
-                          {/* Badges row */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className={getActionTypeColor(actionType)}>
-                              {actionType}
-                            </Badge>
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              {timeAgo(item.created_at)}
-                            </span>
-                            <span className="text-xs text-muted-foreground/70 font-mono">
-                              #{item.aggregate_id.slice(0, 8)}
-                            </span>
-                          </div>
-
-                          {/* Summary */}
-                          <p className="text-sm font-medium text-foreground">
-                            {String(summary)}
-                          </p>
-
-                          {/* Details */}
-                          <p className="text-xs text-muted-foreground">
-                            Requested by: <span className="text-foreground">{item.actor_type}</span>
-                            {item.payload?.risk_level && (
-                              <> • Risk: <span className="text-foreground">{item.payload.risk_level}</span></>
-                            )}
-                          </p>
+                      <div className="flex flex-col gap-3">
+                        {/* Top row: badges + ID */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={getActionTypeColor(actionType)}>
+                            {actionType}
+                          </Badge>
+                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            {timeAgo(item.created_at)}
+                          </span>
+                          <span className="ml-auto text-[10px] text-muted-foreground/70 font-mono">
+                            #{item.aggregate_id.slice(0, 8)}
+                          </span>
                         </div>
 
-                        {/* Action buttons */}
-                        <div className="flex gap-2 sm:ml-4 sm:flex-col">
+                        {/* Summary */}
+                        <p className="text-sm font-medium text-foreground leading-snug">
+                          {String(summary)}
+                        </p>
+
+                        {/* Details */}
+                        <p className="text-xs text-muted-foreground">
+                          Requested by: <span className="text-foreground">{item.actor_type}</span>
+                          {item.payload?.risk_level && (
+                            <> • Risk: <span className="text-foreground capitalize">{item.payload.risk_level}</span></>
+                          )}
+                        </p>
+
+                        {/* Action buttons — aligned to bottom-right */}
+                        <div className="flex gap-2 justify-end pt-1 border-t border-border/60">
+                          <Button
+                            size="sm"
+                            onClick={() => handleReject(item.aggregate_id)}
+                            disabled={isActing}
+                            variant="outline"
+                            className="h-8 px-3 border-red-500/30 text-red-500 hover:bg-red-500/10 text-xs"
+                          >
+                            {actingOn === item.aggregate_id ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <X className="h-3.5 w-3.5 mr-1.5" />
+                            )}
+                            Reject
+                          </Button>
                           <Button
                             size="sm"
                             onClick={() => handleApprove(item.aggregate_id)}
                             disabled={isActing}
-                            className="bg-emerald-600 text-white hover:bg-emerald-700"
+                            className="h-8 px-3 bg-emerald-600 text-white hover:bg-emerald-700 text-xs"
                           >
-                            <Check className="h-3.5 w-3.5" />
+                            {actingOn === item.aggregate_id ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <Check className="h-3.5 w-3.5 mr-1.5" />
+                            )}
                             Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleReject(item.aggregate_id)}
-                            disabled={isActing}
-                            className="border-red-500/30 text-red-500 hover:bg-red-500/10"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Reject
                           </Button>
                         </div>
                       </div>
