@@ -2,20 +2,39 @@
  * Havilah OS — Frontend API Client
  * ----------------------------------------------------------------------------
  * Talks to the Havilah backend (deployed on Railway) via REST.
+ * Uses the JWT stored by <AuthProvider> for all authenticated calls.
  *
- * Usage:
- *   - Set NEXT_PUBLIC_HAVILAH_API_URL in Vercel env vars
- *     e.g. https://havilah-backend.up.railway.app
- *   - Optionally set NEXT_PUBLIC_HAVILAH_API_TOKEN for authenticated endpoints
- *
- * If NEXT_PUBLIC_HAVILAH_API_URL is not set, the dashboard falls back to
- * mock data — useful for first deploy / preview environments.
+ * Env vars:
+ *   NEXT_PUBLIC_HAVILAH_API_URL — backend URL, e.g. https://havilah-production.up.railway.app
  */
 
 const API_URL = process.env.NEXT_PUBLIC_HAVILAH_API_URL ?? ""
-const API_TOKEN = process.env.NEXT_PUBLIC_HAVILAH_API_TOKEN ?? ""
+const TOKEN_KEY = "havilah_jwt"
 
 export const isApiConfigured = Boolean(API_URL)
+
+// ── Token management ─────────────────────────────────────────
+function getToken(): string | null {
+  if (typeof window === "undefined") return null
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+export function setApiToken(token: string | null) {
+  if (typeof window === "undefined") return
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+// ── Fetch wrapper ────────────────────────────────────────────
+export class ApiError extends Error {
+  status: number
+  detail: any
+  constructor(status: number, detail: any, message?: string) {
+    super(message ?? `Havilah API ${status}`)
+    this.status = status
+    this.detail = detail
+  }
+}
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_URL) {
@@ -28,20 +47,45 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string>),
   }
-  if (API_TOKEN) headers.Authorization = `Bearer ${API_TOKEN}`
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(url, {
     ...init,
     headers,
-    // Cache for 5s on the client to avoid hammering the backend during navigation
-    next: { revalidate: 5 },
+    // Disable Next.js fetch caching for authenticated requests — we want
+    // fresh data every time the user clicks something.
+    cache: "no-store",
   })
 
   if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    throw new Error(`Havilah API ${res.status}: ${text || res.statusText}`)
+    let detail: any = null
+    let message = `Havilah API ${res.status}`
+    try {
+      detail = await res.json()
+      if (detail?.detail) message = detail.detail
+    } catch {
+      try { detail = await res.text() } catch {}
+    }
+    // Auto-logout on 401 — token expired or revoked
+    if (res.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem("havilah_user")
+      // Redirect to /login if we're not already there
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login"
+      }
+    }
+    throw new ApiError(res.status, detail, message)
   }
-  return (await res.json()) as T
+  // Some endpoints return empty body on success
+  const text = await res.text()
+  if (!text) return {} as T
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return text as unknown as T
+  }
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -149,11 +193,14 @@ export interface HermesHealth {
 // ─── Endpoints ────────────────────────────────────────────────────────────
 
 export const havilahApi = {
-  /** Health + LLM connectivity check */
+  /** Health + LLM connectivity check (public) */
   health: () => apiFetch<HermesHealth>("/api/hermes/health"),
 
-  /** List all 10 specialized agents */
-  listAgents: () => apiFetch<HermesAgent[]>("/api/hermes/agents"),
+  /** List all 10 specialized agents (requires auth) */
+  listAgents: async (): Promise<HermesAgent[]> => {
+    const resp = await apiFetch<{ agents: HermesAgent[]; total: number }>("/api/hermes/agents")
+    return resp.agents ?? []
+  },
 
   /** Submit a natural-language instruction to Hermes */
   instruct: (instruction: string, source = "dashboard") =>

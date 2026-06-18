@@ -9,9 +9,11 @@ import { MemoryExplorer } from "@/components/havilah/memory-explorer"
 import { ActivityTimeline } from "@/components/havilah/activity-timeline"
 import { SystemArchitecture } from "@/components/havilah/system-architecture"
 import { Separator } from "@/components/ui/separator"
+import { AuthGuard } from "@/components/havilah/auth-guard"
 
 export default function Home() {
   return (
+    <AuthGuard>
     <div className="min-h-screen flex flex-col bg-background">
       {/* Header */}
       <Header />
@@ -72,5 +74,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
+    </AuthGuard>
   )
 }
