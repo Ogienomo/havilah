@@ -170,13 +170,40 @@ export interface MemoryItem {
   tags?: string[]
 }
 
+/** Shape returned by GET /api/events/recent */
 export interface ActivityEvent {
-  id: string
+  aggregate_type: string
+  aggregate_id: string
   event_type: string
-  entity_type: string
-  entity_id: string
-  payload: Record<string, unknown>
+  actor_type: string
+  payload: Record<string, any>
   created_at: string
+}
+
+/** Shape returned by GET /api/hermes/runs */
+export interface ActiveRunsResponse {
+  active_runs: HermesRun[]
+}
+
+/** Shape returned by GET /api/hermes/health */
+export interface HermesHealthDetailed {
+  status: string
+  checks?: {
+    hermes_enabled: boolean
+    openai_configured: boolean
+    model: string
+    llm_connected: boolean
+    llm_test_tokens: number
+    agents_registered: number
+  }
+}
+
+/** Shape returned by POST /api/memory/search */
+export interface MemorySearchResponse {
+  results?: MemoryItem[]
+  memories?: MemoryItem[]
+  total?: number
+  [key: string]: any
 }
 
 export interface HermesHealth {
@@ -194,7 +221,7 @@ export interface HermesHealth {
 
 export const havilahApi = {
   /** Health + LLM connectivity check (public) */
-  health: () => apiFetch<HermesHealth>("/api/hermes/health"),
+  health: () => apiFetch<HermesHealthDetailed>("/api/hermes/health"),
 
   /** List all 10 specialized agents (requires auth) */
   listAgents: async (): Promise<HermesAgent[]> => {
@@ -230,25 +257,51 @@ export const havilahApi = {
     ),
 
   /** List active runs */
-  listRuns: () => apiFetch<HermesRun[]>("/api/hermes/runs"),
+  listRuns: async (): Promise<HermesRun[]> => {
+    const resp = await apiFetch<ActiveRunsResponse>("/api/hermes/runs")
+    return resp.active_runs ?? []
+  },
 
   /** Get a specific run's status */
   getRun: (runId: string) =>
     apiFetch<HermesRun>(`/api/hermes/runs/${runId}`),
 
-  /** Pending approvals */
+  /** Pending approvals (note: backend route currently 500s — derive from events instead) */
   listApprovals: (params: { status?: string } = {}) => {
     const q = new URLSearchParams(params).toString()
-    return apiFetch<Approval[]>(`/api/approvals${q ? `?${q}` : ""}`)
+    return apiFetch<Approval[]>(`/api/approvals/${q ? `?${q}` : ""}`)
   },
 
-  /** Recent memory items */
-  listMemory: (limit = 20) =>
-    apiFetch<MemoryItem[]>(`/api/memory?limit=${limit}`),
+  /** Approve via the approvals API (admin only) */
+  approveApproval: (approvalId: string, reason = "Approved via dashboard") =>
+    apiFetch<{ status: string; message: string }>(
+      `/api/approvals/${approvalId}/approve`,
+      { method: "POST", body: JSON.stringify({ reason }) }
+    ),
 
-  /** Activity timeline */
+  /** Reject via the approvals API (admin only) */
+  rejectApproval: (approvalId: string, reason = "Rejected via dashboard") =>
+    apiFetch<{ status: string; message: string }>(
+      `/api/approvals/${approvalId}/reject`,
+      { method: "POST", body: JSON.stringify({ reason }) }
+    ),
+
+  /** Search memory items by text */
+  searchMemory: async (searchText: string, limit = 20): Promise<MemoryItem[]> => {
+    const resp = await apiFetch<MemorySearchResponse>("/api/memory/search", {
+      method: "POST",
+      body: JSON.stringify({ search_text: searchText, limit }),
+    })
+    return resp.results ?? resp.memories ?? []
+  },
+
+  /** List memories by type */
+  listMemoryByType: (memoryType: string) =>
+    apiFetch<MemoryItem[]>(`/api/memory/type/${encodeURIComponent(memoryType)}`),
+
+  /** Recent activity events */
   listActivity: (limit = 20) =>
-    apiFetch<ActivityEvent[]>(`/api/events?limit=${limit}`),
+    apiFetch<ActivityEvent[]>(`/api/events/recent?limit=${limit}`),
 
   /** Direct chat (no planning pipeline) */
   chat: (message: string, agentType = "default") =>
