@@ -56,9 +56,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── On mount: try to restore session from localStorage ───────
   useEffect(() => {
     const restore = async () => {
+      // Read cached values OUTSIDE the try block so the catch handler can use them
+      const token = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null
+      const cachedUser = typeof window !== "undefined" ? localStorage.getItem(USER_KEY) : null
       try {
-        const token = localStorage.getItem(TOKEN_KEY)
-        const cachedUser = localStorage.getItem(USER_KEY)
         if (!token) {
           setState({ user: null, token: null, loading: false, error: null })
           return
@@ -89,10 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cachedUser) {
           try {
             const u = JSON.parse(cachedUser)
-            setState({ user: u, token: localStorage.getItem(TOKEN_KEY), loading: false, error: null })
+            setState({ user: u, token, loading: false, error: null })
             return
           } catch {}
         }
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(USER_KEY)
         setState({ user: null, token: null, loading: false, error: null })
       }
     }
