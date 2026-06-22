@@ -104,7 +104,7 @@ export function ActivityTimeline() {
     setState("loading")
     setErrorMsg("")
     try {
-      const data = await havilahApi.listActivity(30)
+      const data = await havilahApi.listActivity(15)
       if (Array.isArray(data) && data.length > 0) {
         setEvents(data)
         setState("live")
