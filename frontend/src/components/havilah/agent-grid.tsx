@@ -26,13 +26,13 @@ const item = {
 // Map backend agent_type → color + icon (mirrors mock-data.ts)
 const AGENT_VISUALS: Record<string, { color: string; icon: typeof mockAgents[0]["icon"] }> = {
   planner:   { color: "#60a5fa", icon: mockAgents.find(a => a.id === "planner")!.icon },
-  executive: { color: "#d4a853", icon: mockAgents.find(a => a.id === "executive")!.icon },
+  executive: { color: "#b8821e", icon: mockAgents.find(a => a.id === "executive")!.icon },
   research:  { color: "#34d399", icon: mockAgents.find(a => a.id === "research")!.icon },
   writing:   { color: "#f472b6", icon: mockAgents.find(a => a.id === "writing")!.icon },
   meeting:   { color: "#a78bfa", icon: mockAgents.find(a => a.id === "meeting")!.icon },
-  reviewer:  { color: "#fb7185", icon: mockAgents.find(a => a.id === "reviewer")!.icon },
+  reviewer:  { color: "#2dd4bf", icon: mockAgents.find(a => a.id === "reviewer")!.icon },
   critic:    { color: "#fb923c", icon: mockAgents.find(a => a.id === "critic")!.icon },
-  memory:    { color: "#22d3ee", icon: mockAgents.find(a => a.id === "memory")!.icon },
+  memory:    { color: "#818cf8", icon: mockAgents.find(a => a.id === "memory")!.icon },
   learning:  { color: "#4ade80", icon: mockAgents.find(a => a.id === "learning")!.icon },
   approval:  { color: "#facc15", icon: mockAgents.find(a => a.id === "approval")!.icon },
 }
@@ -91,19 +91,9 @@ export function AgentGrid() {
       <CardHeader>
         <CardTitle className="flex items-center justify-between text-foreground">
           <span className="flex items-center gap-2">
-            Agent Status Grid
-            {state === "live" && (
-              <Badge variant="outline" className="border-emerald-500/30 text-emerald-500 text-[10px]">
-                LIVE
-              </Badge>
-            )}
-            {state === "mock" && (
-              <Badge variant="outline" className="border-amber-500/30 text-amber-500 text-[10px]">
-                DEMO DATA
-              </Badge>
-            )}
+            Agent Roster
           </span>
-          <Badge variant="outline" className="border-havilah-gold/30 text-havilah-gold">
+          <Badge variant="outline" className="border-havilah-gold/30 text-havilah-gold text-[10px]">
             {displayAgents.length} Agents
           </Badge>
         </CardTitle>
@@ -152,66 +142,38 @@ export function AgentGrid() {
                   className="group rounded-lg border border-border bg-card p-3 sm:p-4 transition-all duration-300 hover:border-havilah-gold/30 hover:shadow-md hover:shadow-havilah-gold/5"
                 >
                   <div className="flex flex-col items-center text-center">
-                    {/* Icon with status indicator */}
+                    {/* Icon with status dot (only shown when active or busy) */}
                     <div className="relative mb-3">
                       <div
-                        className="flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110"
-                        style={{ backgroundColor: `${agent.color}15` }}
+                        className="flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105"
+                        style={{ backgroundColor: `${agent.color}12` }}
                       >
-                        <Icon className="h-6 w-6" style={{ color: agent.color }} />
+                        <Icon className="h-5 w-5" style={{ color: agent.color }} />
                       </div>
-                      <span
-                        className={`absolute -right-0.5 -top-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full border-2 border-card ${
-                          agent.status === "active"
-                            ? "bg-emerald-500"
-                            : agent.status === "busy"
-                            ? "bg-amber-500"
-                            : "bg-slate-400 dark:bg-slate-500"
-                        }`}
-                      >
-                        {agent.status === "active" && (
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                        )}
-                        {agent.status === "busy" && (
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-                        )}
-                      </span>
-                    </div>
-
-                    <h3 className="mb-1 text-sm font-semibold text-foreground">{agent.name}</h3>
-
-                    <Badge
-                      variant="outline"
-                      className={`mb-2 text-[10px] ${
-                        agent.status === "active"
-                          ? "border-emerald-500/30 text-emerald-500"
-                          : agent.status === "busy"
-                          ? "border-amber-500/30 text-amber-500"
-                          : "border-slate-400/30 text-slate-400 dark:text-slate-500"
-                      }`}
-                    >
-                      {agent.status}
-                    </Badge>
-
-                    <p className="mb-2 text-[10px] leading-tight text-muted-foreground line-clamp-2">
-                      {agent.description}
-                    </p>
-
-                    <div className="flex flex-wrap justify-center gap-0.5">
-                      {agent.capabilities.slice(0, 2).map((cap) => (
+                      {(agent.status === "active" || agent.status === "busy") && (
                         <span
-                          key={cap}
-                          className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground"
+                          className={`absolute -right-0.5 -top-0.5 flex h-3 w-3 items-center justify-center rounded-full border-2 border-card ${
+                            agent.status === "active" ? "bg-emerald-500" : "bg-amber-500"
+                          }`}
                         >
-                          {cap}
-                        </span>
-                      ))}
-                      {agent.capabilities.length > 2 && (
-                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
-                          +{agent.capabilities.length - 2}
+                          <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${
+                            agent.status === "active" ? "bg-emerald-400" : "bg-amber-400"
+                          }`} />
                         </span>
                       )}
                     </div>
+
+                    <h3 className="mb-0.5 text-[13px] font-semibold text-foreground leading-tight">{agent.name}</h3>
+
+                    {agent.status === "busy" && (
+                      <Badge variant="outline" className="mb-1.5 text-[9px] border-amber-500/30 text-amber-600">
+                        Working
+                      </Badge>
+                    )}
+
+                    <p className="text-[10px] leading-tight text-muted-foreground line-clamp-2 mt-0.5">
+                      {agent.description}
+                    </p>
                   </div>
                 </motion.div>
               )

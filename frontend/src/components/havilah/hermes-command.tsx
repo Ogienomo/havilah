@@ -6,12 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import {
+  LayoutList,
+  Crown,
+  Search,
+  PenTool,
+  Users,
+  Eye,
+  ShieldAlert,
+  Brain,
+  GraduationCap,
   MessageSquare,
-  LayoutGrid,
   Send,
   ShieldCheck,
-  ShieldAlert,
-  Database,
   CheckCircle2,
   Loader2,
   Sparkles,
@@ -24,6 +30,7 @@ import {
   Cpu,
   type LucideIcon,
 } from "lucide-react"
+import Markdown from "react-markdown"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
 import {
@@ -37,15 +44,15 @@ import {
 
 // ─── Agent visual registry ────────────────────────────────────────
 const AGENT_VISUALS: Record<string, { icon: LucideIcon; color: string; label: string }> = {
-  planner:   { icon: LayoutGrid,    color: "#60a5fa", label: "Planner"   },
-  executive: { icon: ShieldCheck,   color: "#d4a853", label: "Executive" },
-  research:  { icon: MessageSquare, color: "#34d399", label: "Research"  },
-  writing:   { icon: MessageSquare, color: "#f472b6", label: "Writing"   },
-  meeting:   { icon: MessageSquare, color: "#a78bfa", label: "Meeting"   },
-  reviewer:  { icon: ShieldAlert,   color: "#fb7185", label: "Reviewer"  },
-  critic:    { icon: AlertCircle,   color: "#fb923c", label: "Critic"    },
-  memory:    { icon: Database,      color: "#22d3ee", label: "Memory"    },
-  learning:  { icon: Sparkles,      color: "#4ade80", label: "Learning"  },
+  planner:   { icon: LayoutList,    color: "#60a5fa", label: "Planner"   },
+  executive: { icon: Crown,         color: "#b8821e", label: "Executive" },
+  research:  { icon: Search,        color: "#34d399", label: "Research"  },
+  writing:   { icon: PenTool,       color: "#f472b6", label: "Writing"   },
+  meeting:   { icon: Users,         color: "#a78bfa", label: "Meeting"   },
+  reviewer:  { icon: Eye,           color: "#2dd4bf", label: "Reviewer"  },
+  critic:    { icon: ShieldAlert,   color: "#fb923c", label: "Critic"    },
+  memory:    { icon: Brain,         color: "#818cf8", label: "Memory"    },
+  learning:  { icon: GraduationCap, color: "#4ade80", label: "Learning"  },
   approval:  { icon: ShieldCheck,   color: "#facc15", label: "Approval"  },
 }
 
@@ -388,17 +395,17 @@ export function HermesCommand() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="rounded-xl border border-havilah-gold/20 bg-gradient-to-b from-havilah-gold/8 to-havilah-gold/3 p-5 sm:p-6 space-y-3"
+              className="rounded-xl border border-havilah-gold/25 bg-havilah-gold/5 p-5 sm:p-6 space-y-3"
             >
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-havilah-gold/20">
-                  <CheckCircle2 className="h-4 w-4 text-havilah-gold" />
+              <div className="flex items-center gap-2.5 pb-2 border-b border-havilah-gold/15">
+                <div className="flex h-6 w-6 items-center justify-center rounded bg-havilah-gold/20">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-havilah-gold" />
                 </div>
-                <span className="text-sm font-semibold text-havilah-gold">Answer</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-havilah-gold">Result</span>
               </div>
-              <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                {result.summary}
-              </p>
+              <div className="prose-answer">
+                <Markdown>{result.summary}</Markdown>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -607,28 +614,28 @@ function StepCard({ step, result, isAwaiting }: { step: HermesStep; result?: Her
 
 // ─── Result output (collapsible) ──────────────────────────────────
 function ResultOutput({ text, tokens, expanded, onToggle }: { text: string; tokens?: number; expanded: boolean; onToggle: () => void }) {
-  const isLong = text.length > 300
-  const preview = isLong && !expanded ? text.slice(0, 300) + "…" : text
+  const isLong = text.length > 400
+  const preview = isLong && !expanded ? text.slice(0, 400) + "…" : text
 
   return (
-    <div className="rounded-md bg-muted/20 border border-border/40 overflow-hidden mt-2">
-      <div className="px-3 py-2">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <Cpu className="h-2.5 w-2.5 text-muted-foreground/50" />
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">Output</span>
+    <div className="rounded-md bg-muted/30 border border-border/50 overflow-hidden mt-2">
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Cpu className="h-2.5 w-2.5 text-muted-foreground/40" />
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">Output</span>
           {tokens != null && (
-            <span className="ml-auto text-[10px] text-muted-foreground/40 font-mono">{tokens} tok</span>
+            <span className="ml-auto text-[10px] text-muted-foreground/35 font-mono">{tokens} tok</span>
           )}
         </div>
-        <p className="text-xs leading-relaxed text-foreground/80 whitespace-pre-wrap">
-          {preview}
-        </p>
+        <div className="text-xs leading-relaxed text-foreground/75 prose-answer [&_h2]:text-xs [&_h3]:text-xs [&_p]:mb-1.5 [&_ul]:pl-3 [&_li]:mb-0.5">
+          <Markdown>{preview}</Markdown>
+        </div>
       </div>
       {isLong && (
         <button
           type="button"
           onClick={onToggle}
-          className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[10px] text-muted-foreground/60 hover:text-muted-foreground hover:bg-muted/30 transition-colors border-t border-border/40"
+          className="w-full flex items-center justify-center gap-1.5 py-1.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted/40 transition-colors border-t border-border/40"
         >
           <ChevronRight className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
           {expanded ? "Show less" : `Show full output (${text.length} chars)`}

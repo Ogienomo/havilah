@@ -120,20 +120,23 @@ class TaskPlanner:
             agent_section += f"- {agent.name}: {agent.description}\n"
             agent_section += f"  Capabilities: {', '.join(agent.capabilities)}\n"
 
-        prompt = f"""Create an execution plan for the following instruction:
+        prompt = f"""Create a MINIMAL execution plan for this instruction.
 
 INSTRUCTION: {instruction}
 {context_section}
 
 {agent_section}
 
-RULES:
-1. Every step that involves EXTERNAL action (sending messages, making payments, publishing content, changing client data) MUST have approval_required=true
-2. Steps that are INTERNAL only (reading data, analysis, drafting, summarizing) may have approval_required=false
-3. Assign the most appropriate agent to each step
-4. Steps should be sequential but can have parallel dependencies
-5. The reviewer agent should review any externally-facing output before approval
-6. Assess risk level honestly — low for read-only, medium for drafts, high for external actions, critical for financial/legal
+RULES — READ CAREFULLY:
+0. MINIMIZE STEPS (most important rule):
+   - Research, analysis, drafting, writing, summarizing → EXACTLY 1 STEP
+   - Only add a second step if the task genuinely requires a DIFFERENT capability (e.g. draft THEN send)
+   - Maximum 3 steps total. If you are considering more, consolidate into fewer steps.
+   - Do NOT add memory, planning, or reviewer steps for internal tasks — they waste time.
+1. External actions (sending messages, payments, publishing) MUST have approval_required=true
+2. Internal actions (analysis, drafting, research, summarizing) have approval_required=false, risk_level=low
+3. Choose the SINGLE BEST agent per step — do not split what one agent can do
+4. Assess risk honestly: read-only=low, draft=low, external send=high, financial=critical
 
 Output a JSON plan following the schema."""
 
@@ -153,6 +156,14 @@ Output a JSON plan following the schema."""
             plan_data = self._create_fallback_plan(instruction)
 
         steps = plan_data["steps"]
+
+        # Hard cap: never more than 3 steps regardless of what the LLM planned
+        MAX_STEPS = 3
+        if len(steps) > MAX_STEPS:
+            logger.warning(f"Plan had {len(steps)} steps — truncated to {MAX_STEPS}")
+            steps = steps[:MAX_STEPS]
+            for i, s in enumerate(steps):
+                s["step_number"] = i + 1
 
         # Validate risk_level and enforce approval_required for external actions
         for step in steps:

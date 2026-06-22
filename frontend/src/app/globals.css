@@ -47,41 +47,41 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --havilah-gold: #d4a853;
-  --havilah-gold-light: #e8c97a;
-  --havilah-gold-dark: #b8912e;
-  --background: #f8f7f4;
-  --foreground: #1a1d27;
+  --radius: 0.5rem;
+  --havilah-gold: #b8821e;
+  --havilah-gold-light: #d4a040;
+  --havilah-gold-dark: #96680f;
+  --background: #f5f4f1;
+  --foreground: #111318;
   --card: #ffffff;
-  --card-foreground: #1a1d27;
+  --card-foreground: #111318;
   --popover: #ffffff;
-  --popover-foreground: #1a1d27;
-  --primary: #b8912e;
+  --popover-foreground: #111318;
+  --primary: #b8821e;
   --primary-foreground: #ffffff;
-  --secondary: #f0ebe0;
-  --secondary-foreground: #1a1d27;
-  --muted: #f0ebe0;
-  --muted-foreground: #6b6f80;
-  --accent: #f0ebe0;
-  --accent-foreground: #1a1d27;
-  --destructive: #dc3545;
-  --border: #e2ddd0;
-  --input: #e2ddd0;
-  --ring: #d4a853;
-  --chart-1: #d4a853;
-  --chart-2: #6ba368;
-  --chart-3: #5b8cc9;
-  --chart-4: #e87c5b;
-  --chart-5: #9b6bb5;
+  --secondary: #ebe8e1;
+  --secondary-foreground: #111318;
+  --muted: #ebe8e1;
+  --muted-foreground: #555868;
+  --accent: #ebe8e1;
+  --accent-foreground: #111318;
+  --destructive: #c0281f;
+  --border: #d9d5cd;
+  --input: #d9d5cd;
+  --ring: #b8821e;
+  --chart-1: #b8821e;
+  --chart-2: #35884f;
+  --chart-3: #2d72c0;
+  --chart-4: #cc5530;
+  --chart-5: #7a44a8;
   --sidebar: #ffffff;
-  --sidebar-foreground: #1a1d27;
-  --sidebar-primary: #b8912e;
+  --sidebar-foreground: #111318;
+  --sidebar-primary: #b8821e;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f0ebe0;
-  --sidebar-accent-foreground: #1a1d27;
-  --sidebar-border: #e2ddd0;
-  --sidebar-ring: #d4a853;
+  --sidebar-accent: #ebe8e1;
+  --sidebar-accent-foreground: #111318;
+  --sidebar-border: #d9d5cd;
+  --sidebar-ring: #b8821e;
 }
 
 .dark {
@@ -128,6 +128,59 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Premium micro-shadows on cards in light mode */
+:root [data-radix-collection-item],
+:root .card-shadow {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Light mode prose-style markdown output */
+.prose-answer {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.prose-answer h1, .prose-answer h2 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+  color: var(--foreground);
+}
+.prose-answer h3 {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.8rem;
+  margin-bottom: 0.3rem;
+  color: var(--foreground);
+}
+.prose-answer p {
+  margin-bottom: 0.6rem;
+}
+.prose-answer ul, .prose-answer ol {
+  padding-left: 1.2rem;
+  margin-bottom: 0.6rem;
+}
+.prose-answer li {
+  margin-bottom: 0.25rem;
+}
+.prose-answer strong {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.prose-answer code {
+  background: var(--muted);
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-size: 0.82em;
+  font-family: var(--font-geist-mono), monospace;
+}
+.prose-answer hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.75rem 0;
 }
 
 /* Custom Scrollbar */

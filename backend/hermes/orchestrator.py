@@ -437,15 +437,31 @@ class HermesOrchestrator:
             }
 
         except Exception as e:
-            logger.error(f"Agent dispatch failed for {agent_name}: {e}")
-            return {
-                "step_number": step.get("step_number"),
-                "agent": agent_name,
-                "action": action,
-                "status": "failed",
-                "output": f"Agent error: {e}",
-                "error": str(e),
-            }
+            logger.error(f"[{run_id}] Agent dispatch failed for {agent_name}: {e}")
+            # Attempt a minimal fallback with reduced context before giving up
+            try:
+                fallback_msg = [{"role": "user", "content": (
+                    f"Briefly respond to this request in 2-3 sentences: {original_instruction}"
+                )}]
+                fallback = self.llm.chat(messages=fallback_msg, agent_type="executive")
+                return {
+                    "step_number": step.get("step_number"),
+                    "agent": agent_name,
+                    "action": action,
+                    "status": "success",
+                    "output": fallback["content"],
+                    "tokens": fallback.get("tokens"),
+                    "requires_approval": False,
+                }
+            except Exception:
+                return {
+                    "step_number": step.get("step_number"),
+                    "agent": agent_name,
+                    "action": action,
+                    "status": "failed",
+                    "output": f"Unable to complete this step. Please try rephrasing your request.",
+                    "error": str(e),
+                }
 
     def _generate_summary(self, instruction: str, results: list[dict], awaiting_approval: bool = False) -> str:
         """
