@@ -93,7 +93,7 @@ export function useMemory(limit = 20) {
     queryKey: ["memory", limit],
     queryFn: async () => {
       if (!isApiConfigured) return mockMemory
-      const remote = await havilahApi.listMemory(limit)
+      const remote = await havilahApi.searchMemory("", limit)
       return remote.map((m) => ({
         id: m.id,
         type: m.type as never,
@@ -117,8 +117,8 @@ export function useActivity(limit = 20) {
       if (!isApiConfigured) return mockActivity
       const remote = await havilahApi.listActivity(limit)
       return remote.map((e, i) => ({
-        id: e.id,
-        category: (e.entity_type as never) ?? "system",
+        id: e.aggregate_id,
+        category: (e.aggregate_type as never) ?? "system",
         title: e.event_type.replace(/_/g, " "),
         description: JSON.stringify(e.payload).slice(0, 120),
         timestamp: e.created_at,
