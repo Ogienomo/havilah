@@ -36,7 +36,7 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(path: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
   if (!API_URL) {
     throw new Error(
       "NEXT_PUBLIC_HAVILAH_API_URL is not set. Configure it in Vercel env vars."
@@ -50,13 +50,27 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
 
-  const res = await fetch(url, {
-    ...init,
-    headers,
-    // Disable Next.js fetch caching for authenticated requests — we want
-    // fresh data every time the user clicks something.
-    cache: "no-store",
-  })
+  // Timeout support via AbortController — default 30s, override per-call
+  const timeoutMs = (init as any)?.timeoutMs ?? 30_000
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  let res: Response
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers,
+      cache: "no-store",
+      signal: controller.signal,
+    })
+  } catch (fetchErr: any) {
+    clearTimeout(timeoutId)
+    if (fetchErr?.name === "AbortError") {
+      throw new ApiError(0, null, `Request timed out after ${timeoutMs / 1000}s`)
+    }
+    throw fetchErr
+  }
+  clearTimeout(timeoutId)
 
   if (!res.ok) {
     let detail: any = null
@@ -263,21 +277,23 @@ export const havilahApi = {
     return resp.agents ?? []
   },
 
-  /** Submit a natural-language instruction to Hermes */
+  /** Submit a natural-language instruction to Hermes (90s timeout — LLM calls are slow) */
   instruct: (instruction: string, source = "dashboard") =>
     apiFetch<HermesInstructionResponse>("/api/hermes/instruct", {
       method: "POST",
       body: JSON.stringify({ instruction, source, context: {} }),
-    }),
+      timeoutMs: 90_000,
+    } as RequestInit & { timeoutMs: number }),
 
-  /** Approve a pending step */
+  /** Approve a pending step (90s timeout — continues the run, which calls LLM) */
   approve: (runId: string, reason = "Approved via dashboard") =>
-    apiFetch<{ run_id: string; status: string; message: string }>(
+    apiFetch<{ run_id: string; status: string; message: string } & Partial<HermesInstructionResponse>>(
       "/api/hermes/approve",
       {
         method: "POST",
         body: JSON.stringify({ run_id: runId, reason }),
-      }
+        timeoutMs: 90_000,
+      } as RequestInit & { timeoutMs: number }
     ),
 
   /** Reject a pending step */

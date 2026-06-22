@@ -62,10 +62,10 @@ function getAgentVisual(name?: string) {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  low:      "border-emerald-500/30 text-emerald-400 bg-emerald-500/5",
-  medium:   "border-amber-500/30   text-amber-400   bg-amber-500/5",
-  high:     "border-red-500/30     text-red-400     bg-red-500/5",
-  critical: "border-purple-500/30  text-purple-400  bg-purple-500/5",
+  low:      "border-emerald-500/30 text-emerald-600 bg-emerald-500/5",
+  medium:   "border-amber-500/30   text-amber-600   bg-amber-500/5",
+  high:     "border-red-500/30     text-red-600     bg-red-500/5",
+  critical: "border-purple-500/30  text-purple-600  bg-purple-500/5",
 }
 
 type RunState = "idle" | "submitting" | "completed" | "awaiting_approval" | "failed" | "auto_approving"
@@ -298,7 +298,7 @@ export function HermesCommand() {
 
           {/* Auto-approve toggle */}
           <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-card/80 px-3.5 py-2.5">
-            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${autoApprove ? "bg-violet-500/15 text-violet-400" : "bg-muted/60 text-muted-foreground"}`}>
+            <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${autoApprove ? "bg-violet-500/15 text-violet-600" : "bg-muted/60 text-muted-foreground"}`}>
               {autoApprove ? <Zap className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
             </div>
             <div className="flex-1 min-w-0">
@@ -327,7 +327,7 @@ export function HermesCommand() {
               <div className="absolute inset-0 animate-ping rounded-full bg-havilah-gold/20" />
               <div className="relative flex h-16 w-16 items-center justify-center rounded-full border border-havilah-gold/30 bg-havilah-gold/10">
                 {runState === "auto_approving"
-                  ? <Zap className="h-7 w-7 text-violet-400 animate-pulse" />
+                  ? <Zap className="h-7 w-7 text-violet-600 animate-pulse" />
                   : <Sparkles className="h-7 w-7 text-havilah-gold animate-pulse" />}
               </div>
             </div>
@@ -351,7 +351,7 @@ export function HermesCommand() {
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-500/15">
-                  <ShieldCheck className="h-5 w-5 text-amber-400" />
+                  <ShieldCheck className="h-5 w-5 text-amber-600" />
                 </div>
                 <div className="flex-1 space-y-1">
                   <p className="text-sm font-semibold text-foreground">Approval required to continue</p>
@@ -369,7 +369,7 @@ export function HermesCommand() {
                   disabled={actingOnApproval !== null}
                   variant="outline"
                   size="sm"
-                  className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  className="border-red-500/30 text-red-600 hover:bg-red-500/10"
                 >
                   {actingOnApproval === "reject" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5 mr-1.5" />}
                   Reject
@@ -420,7 +420,7 @@ export function HermesCommand() {
               className="rounded-xl border border-red-500/20 bg-red-500/5 p-4"
             >
               <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
+                <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-foreground">Run failed</p>
                   <p className="text-xs text-muted-foreground/80 mt-0.5 leading-relaxed">{errorMsg}</p>
@@ -441,9 +441,9 @@ export function HermesCommand() {
               <ChevronRight className={`h-3.5 w-3.5 transition-transform ${traceOpen ? "rotate-90" : ""}`} />
               <span>{steps.length}-step execution trace</span>
               {result?.plan?.requires_any_approval ? (
-                <Badge variant="outline" className="ml-auto text-[10px] border-amber-500/30 text-amber-400">Approval required</Badge>
+                <Badge variant="outline" className="ml-auto text-[10px] border-amber-500/30 text-amber-600">Approval required</Badge>
               ) : (
-                <Badge variant="outline" className="ml-auto text-[10px] border-emerald-500/30 text-emerald-500">Auto-executed</Badge>
+                <Badge variant="outline" className="ml-auto text-[10px] border-emerald-500/30 text-emerald-600">Auto-executed</Badge>
               )}
             </button>
 
@@ -521,10 +521,10 @@ export function HermesCommand() {
 function RunBadge({ state }: { state: RunState }) {
   const config: Record<string, { label: string; cls: string }> = {
     submitting:        { label: "Running",         cls: "border-havilah-gold/40 text-havilah-gold" },
-    auto_approving:    { label: "Auto-approving",  cls: "border-violet-500/40 text-violet-400" },
-    completed:         { label: "Completed",       cls: "border-emerald-500/30 text-emerald-400" },
-    awaiting_approval: { label: "Needs approval",  cls: "border-amber-500/30 text-amber-400" },
-    failed:            { label: "Failed",          cls: "border-red-500/30 text-red-400" },
+    auto_approving:    { label: "Auto-approving",  cls: "border-violet-500/40 text-violet-600" },
+    completed:         { label: "Completed",       cls: "border-emerald-500/30 text-emerald-600" },
+    awaiting_approval: { label: "Needs approval",  cls: "border-amber-500/30 text-amber-600" },
+    failed:            { label: "Failed",          cls: "border-red-500/30 text-red-600" },
   }
   const c = config[state]
   if (!c) return null
@@ -576,22 +576,22 @@ function StepCard({ step, result, isAwaiting }: { step: HermesStep; result?: Her
                 {step.risk_level}
               </Badge>
               {step.approval_required && (
-                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400 bg-amber-500/5">
+                <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-600 bg-amber-500/5">
                   <ShieldCheck className="h-2.5 w-2.5 mr-1" />Approval
                 </Badge>
               )}
               {result?.status === "success" && (
-                <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-400 bg-emerald-500/5">
+                <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-600 bg-emerald-500/5">
                   <CheckCircle2 className="h-2.5 w-2.5 mr-1" />Done
                 </Badge>
               )}
               {isAwaiting && (
-                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-400 bg-amber-500/8 animate-pulse">
+                <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600 bg-amber-500/10 animate-pulse">
                   <Clock className="h-2.5 w-2.5 mr-1" />Paused
                 </Badge>
               )}
               {isFailed && (
-                <Badge variant="outline" className="text-[10px] border-red-500/30 text-red-400 bg-red-500/5">
+                <Badge variant="outline" className="text-[10px] border-red-500/30 text-red-600 bg-red-500/5">
                   <XCircle className="h-2.5 w-2.5 mr-1" />Failed
                 </Badge>
               )}
