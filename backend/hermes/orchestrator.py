@@ -320,7 +320,7 @@ class HermesOrchestrator:
                 action=action,
                 step=step,
                 previous_results=results,
-                context=run.get("context", {}),
+                context={**run.get("context", {}), "instruction": run.get("instruction", "")},
             )
 
             if requires_approval and step_result.get("status") == "success":
