@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   title: "Havilah OS — AI Executive Operating System",
   description: "AI orchestration dashboard with 10 specialized agents, Hermes engine, and approval ledger.",
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/favicon.ico",
   },
 };
 
@@ -34,8 +34,7 @@ export default function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
         >
           {children}

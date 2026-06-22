@@ -30,6 +30,7 @@ from backend.hermes.agent_registry import AgentRegistry
 from backend.hermes.task_planner import TaskPlanner
 from backend.hermes.approval_gate import ApprovalGate
 from backend.hermes.memory_recorder import MemoryRecorder
+from backend.repositories.hermes_run_repository import HermesRunRepository
 from backend.config.settings import get_settings
 
 logger = logging.getLogger("havilah.orchestrator")
@@ -67,8 +68,9 @@ class HermesOrchestrator:
         self.planner = TaskPlanner()
         self.approval_gate = ApprovalGate()
         self.memory_recorder = MemoryRecorder()
+        self.run_repo = HermesRunRepository()
 
-        # Track active runs
+        # In-memory cache for fast lookups (DB is the source of truth)
         self._active_runs: dict[str, dict] = {}
 
     def process_instruction(
@@ -106,7 +108,7 @@ class HermesOrchestrator:
 
         logger.info(f"Hermes run {run_id} started: '{instruction[:80]}...' (source={source})")
 
-        # Track the run
+        # Track the run in memory and persist to DB
         run = {
             "run_id": run_id,
             "instruction": instruction,
@@ -116,6 +118,7 @@ class HermesOrchestrator:
             "context": context or {},
         }
         self._active_runs[run_id] = run
+        self.run_repo.create(run_id, instruction, source, context or {})
 
         try:
             # ── Step 1: RECALL relevant memory ─────────────────────
@@ -130,7 +133,8 @@ class HermesOrchestrator:
 
             # ── Step 2: PLAN the execution ─────────────────────────
             logger.info(f"[{run_id}] Creating execution plan...")
-            plan_context = {**(context or {}), **memory_context}
+            # Include original instruction so _dispatch_agent can surface it to every agent
+            plan_context = {**(context or {}), **memory_context, "instruction": instruction}
             plan = self.planner.plan(instruction, context=plan_context)
 
             run["plan"] = plan
@@ -172,10 +176,8 @@ class HermesOrchestrator:
 
                     # Mark the run as awaiting approval
                     run["status"] = RunStatus.AWAITING_APPROVAL
-
-                    # For now, we stop execution and return with pending approval
-                    # The user must approve via API or WhatsApp, then call continue_run()
                     results.append(step_result)
+                    self.run_repo.update_status(run_id, RunStatus.AWAITING_APPROVAL, plan=plan, results=results)
 
                     logger.info(
                         f"[{run_id}] Awaiting approval {approval_id} for step {step_num}"
@@ -209,6 +211,7 @@ class HermesOrchestrator:
 
             run["status"] = RunStatus.COMPLETED
             run["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self.run_repo.update_status(run_id, RunStatus.COMPLETED, plan=plan, results=results)
 
             elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.info(
@@ -232,6 +235,7 @@ class HermesOrchestrator:
             logger.error(f"Hermes run {run_id} failed: {e}")
             run["status"] = RunStatus.FAILED
             run["error"] = str(e)
+            self.run_repo.update_status(run_id, RunStatus.FAILED, error=str(e))
 
             return {
                 "run_id": run_id,
@@ -257,7 +261,11 @@ class HermesOrchestrator:
             Updated run result dict
         """
         if run_id not in self._active_runs:
-            return {"error": f"Run {run_id} not found or expired"}
+            # Try to reload from DB (post-restart recovery)
+            db_run = self.run_repo.get(run_id)
+            if db_run is None:
+                return {"error": f"Run {run_id} not found or expired"}
+            self._active_runs[run_id] = db_run
 
         run = self._active_runs[run_id]
         if run["status"] != RunStatus.AWAITING_APPROVAL:
@@ -312,7 +320,7 @@ class HermesOrchestrator:
                 action=action,
                 step=step,
                 previous_results=results,
-                context=run.get("context", {}),
+                context={**run.get("context", {}), "instruction": run.get("instruction", "")},
             )
 
             if requires_approval and step_result.get("status") == "success":
@@ -371,32 +379,41 @@ class HermesOrchestrator:
     ) -> dict:
         """
         Dispatch a step to a specialized agent via LLM.
-
-        The agent receives:
-        - The action to perform
-        - Context from previous steps
-        - Its system prompt (role-specific)
-
-        The agent returns:
-        - The output (analysis, draft, recommendation, etc.)
-        - Whether it requires human review
-        - Confidence level
         """
-        # Build conversation with previous results as context
-        messages = []
+        # Planner must never be an execution agent — redirect to executive
+        if agent_name == "planner":
+            logger.warning(f"[{run_id}] Planner assigned as execution step — redirecting to executive")
+            agent_name = "executive"
 
-        # Include previous step results as context
+        # Original instruction gives the agent crucial goal context
+        original_instruction = (context or {}).get("instruction", action)
+
+        # Build a structured, information-rich user message
+        parts = [f"OVERALL GOAL: {original_instruction}"]
+
+        if original_instruction != action:
+            parts.append(f"YOUR SPECIFIC TASK: {action}")
+
+        expected = step.get("expected_output", "")
+        if expected:
+            parts.append(f"EXPECTED DELIVERABLE: {expected}")
+
+        # Provide context from prior steps (last 3 only to stay focused)
         if previous_results:
-            prev_summary = "Previous step results:\n"
-            for i, r in enumerate(previous_results):
-                output = r.get("output", "No output")
-                if isinstance(output, str) and len(output) > 300:
-                    output = output[:300] + "..."
-                prev_summary += f"Step {i+1}: {output}\n"
-            messages.append({"role": "assistant", "content": prev_summary})
+            ctx_lines = ["CONTEXT FROM PREVIOUS STEPS ALREADY COMPLETED:"]
+            for r in previous_results[-3:]:
+                out = str(r.get("output", ""))
+                if len(out) > 500:
+                    out = out[:500] + "…"
+                ctx_lines.append(f"• [{r.get('agent', 'agent')}] {out}")
+            parts.append("\n".join(ctx_lines))
 
-        # The actual instruction for this step
-        messages.append({"role": "user", "content": action})
+        parts.append(
+            "INSTRUCTION: Produce complete, specific, high-quality output for your task above. "
+            "Do NOT ask for clarification. Do NOT describe your process. Deliver the result directly."
+        )
+
+        messages = [{"role": "user", "content": "\n\n".join(parts)}]
 
         # Get agent-specific overrides
         agent_def = self.registry.get(agent_name)
@@ -420,45 +437,76 @@ class HermesOrchestrator:
             }
 
         except Exception as e:
-            logger.error(f"Agent dispatch failed for {agent_name}: {e}")
-            return {
-                "step_number": step.get("step_number"),
-                "agent": agent_name,
-                "action": action,
-                "status": "failed",
-                "output": f"Agent error: {e}",
-                "error": str(e),
-            }
+            logger.error(f"[{run_id}] Agent dispatch failed for {agent_name}: {e}")
+            # Attempt a minimal fallback with reduced context before giving up
+            try:
+                fallback_msg = [{"role": "user", "content": (
+                    f"Briefly respond to this request in 2-3 sentences: {original_instruction}"
+                )}]
+                fallback = self.llm.chat(messages=fallback_msg, agent_type="executive")
+                return {
+                    "step_number": step.get("step_number"),
+                    "agent": agent_name,
+                    "action": action,
+                    "status": "success",
+                    "output": fallback["content"],
+                    "tokens": fallback.get("tokens"),
+                    "requires_approval": False,
+                }
+            except Exception:
+                return {
+                    "step_number": step.get("step_number"),
+                    "agent": agent_name,
+                    "action": action,
+                    "status": "failed",
+                    "output": f"Unable to complete this step. Please try rephrasing your request.",
+                    "error": str(e),
+                }
 
     def _generate_summary(self, instruction: str, results: list[dict], awaiting_approval: bool = False) -> str:
-        """Generate a human-readable summary of the orchestration results."""
+        """
+        Generate a clean, human-readable summary — the primary result shown to the user.
+
+        Priority: surface the most substantive agent output rather than dumping all steps.
+        """
+        if not results:
+            return instruction
+
         if awaiting_approval:
-            summary = f"Processed: {instruction}\n\nExecution paused — human approval required.\n\n"
-        else:
-            summary = f"Processed: {instruction}\n\n"
+            pending = results[-1]
+            out = str(pending.get("output", ""))[:800]
+            return (
+                f"**Execution paused — human approval required**\n\n"
+                f"**Pending action:** {pending.get('action', '')}\n\n"
+                f"{out}"
+            )
 
-        for i, r in enumerate(results):
-            agent = r.get("agent", "unknown")
-            status = r.get("status", "unknown")
-            output = r.get("output", "No output")
-            if isinstance(output, str) and len(output) > 200:
-                output = output[:200] + "..."
-            summary += f"{i+1}. [{agent}] ({status}): {output}\n"
+        # Select the most substantive successful result in priority order
+        priority_agents = ["research", "writing", "executive", "meeting", "critic", "reviewer", "learning"]
+        primary = None
+        for agent_name in priority_agents:
+            for r in reversed(results):
+                if r.get("agent") == agent_name and r.get("status") == "success":
+                    primary = r
+                    break
+            if primary:
+                break
 
-            if r.get("approval"):
-                approval_status = r["approval"].get("status", "unknown")
-                summary += f"   Approval: {approval_status}\n"
+        if primary is None:
+            primary = next(
+                (r for r in reversed(results) if r.get("status") == "success"),
+                results[-1],
+            )
 
-        return summary
+        return str(primary.get("output", f"Completed: {instruction}"))
 
     def get_run(self, run_id: str) -> Optional[dict]:
-        """Get the status of an active run."""
-        return self._active_runs.get(run_id)
+        """Get the status of a run — checks memory cache first, then DB."""
+        if run_id in self._active_runs:
+            return self._active_runs[run_id]
+        # Fall back to DB (handles post-restart lookups)
+        return self.run_repo.get(run_id)
 
     def list_active_runs(self) -> list[dict]:
-        """List all active (non-completed) runs."""
-        return [
-            {"run_id": r["run_id"], "status": r["status"], "instruction": r["instruction"][:80]}
-            for r in self._active_runs.values()
-            if r["status"] not in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
-        ]
+        """List all active (non-completed) runs from DB."""
+        return self.run_repo.list_active()

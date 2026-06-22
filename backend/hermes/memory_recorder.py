@@ -109,12 +109,24 @@ Output JSON: {"memories_to_capture": [...], "memories_to_reinforce": [...]}"""
                 except Exception as e:
                     logger.warning(f"Failed to capture memory: {e}")
 
-            # Note: reinforcement would require looking up existing memory IDs
-            # For now, we count the intent
-            reinforced_plans = data.get("memories_to_reinforce", [])
-            reinforced = len(reinforced_plans)
+            # Reinforce existing memories: search by title keywords and reinforce matches
+            reinforced = 0
+            for reinforce_hint in data.get("memories_to_reinforce", []):
+                hint_title = reinforce_hint.get("title", "") if isinstance(reinforce_hint, dict) else str(reinforce_hint)
+                if not hint_title:
+                    continue
+                try:
+                    matches = self.memory_service.recall_memory(hint_title)
+                    if isinstance(matches, list):
+                        for match in matches[:2]:  # reinforce at most 2 matches per hint
+                            memory_id = getattr(match, "id", None) or (match.get("id") if isinstance(match, dict) else None)
+                            if memory_id:
+                                self.memory_service.reinforce_memory(memory_id)
+                                reinforced += 1
+                except Exception as e:
+                    logger.warning(f"Failed to reinforce memory for hint '{hint_title[:60]}': {e}")
 
-            logger.info(f"Memory recording complete: {captured} captured, {reinforced} to reinforce")
+            logger.info(f"Memory recording complete: {captured} captured, {reinforced} reinforced")
 
             return {
                 "memories_captured": captured,

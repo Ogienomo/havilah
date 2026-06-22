@@ -204,6 +204,7 @@ from backend.api.auth_routes import router as auth_router
 from backend.api.whatsapp import router as whatsapp_router
 from backend.api.telegram import router as telegram_router
 from backend.api.hermes import router as hermes_router
+from backend.api.user_preferences import router as user_preferences_router
 
 # Auth routes (no auth guard — these are the entry point)
 app.include_router(auth_router)
@@ -230,3 +231,4 @@ app.include_router(search_router)
 app.include_router(whatsapp_router)
 app.include_router(telegram_router)
 app.include_router(hermes_router)
+app.include_router(user_preferences_router)

@@ -120,20 +120,23 @@ class TaskPlanner:
             agent_section += f"- {agent.name}: {agent.description}\n"
             agent_section += f"  Capabilities: {', '.join(agent.capabilities)}\n"
 
-        prompt = f"""Create an execution plan for the following instruction:
+        prompt = f"""Create a MINIMAL execution plan for this instruction.
 
 INSTRUCTION: {instruction}
 {context_section}
 
 {agent_section}
 
-RULES:
-1. Every step that involves EXTERNAL action (sending messages, making payments, publishing content, changing client data) MUST have approval_required=true
-2. Steps that are INTERNAL only (reading data, analysis, drafting, summarizing) may have approval_required=false
-3. Assign the most appropriate agent to each step
-4. Steps should be sequential but can have parallel dependencies
-5. The reviewer agent should review any externally-facing output before approval
-6. Assess risk level honestly — low for read-only, medium for drafts, high for external actions, critical for financial/legal
+RULES — READ CAREFULLY:
+0. MINIMIZE STEPS (most important rule):
+   - Research, analysis, drafting, writing, summarizing → EXACTLY 1 STEP
+   - Only add a second step if the task genuinely requires a DIFFERENT capability (e.g. draft THEN send)
+   - Maximum 3 steps total. If you are considering more, consolidate into fewer steps.
+   - Do NOT add memory, planning, or reviewer steps for internal tasks — they waste time.
+1. External actions (sending messages, payments, publishing) MUST have approval_required=true
+2. Internal actions (analysis, drafting, research, summarizing) have approval_required=false, risk_level=low
+3. Choose the SINGLE BEST agent per step — do not split what one agent can do
+4. Assess risk honestly: read-only=low, draft=low, external send=high, financial=critical
 
 Output a JSON plan following the schema."""
 
@@ -152,12 +155,36 @@ Output a JSON plan following the schema."""
             logger.warning("LLM plan did not include 'steps', creating default plan")
             plan_data = self._create_fallback_plan(instruction)
 
+        steps = plan_data["steps"]
+
+        # Hard cap: never more than 3 steps regardless of what the LLM planned
+        MAX_STEPS = 3
+        if len(steps) > MAX_STEPS:
+            logger.warning(f"Plan had {len(steps)} steps — truncated to {MAX_STEPS}")
+            steps = steps[:MAX_STEPS]
+            for i, s in enumerate(steps):
+                s["step_number"] = i + 1
+
+        # Validate risk_level and enforce approval_required for external actions
+        for step in steps:
+            step["risk_level"] = self._validate_risk_level(step.get("risk_level", "medium"))
+            if self._is_external_action(step.get("action", "")) and not step.get("approval_required"):
+                step["approval_required"] = True
+                step["risk_level"] = max(
+                    ["low", "medium", "high"],
+                    key=["low", "medium", "high"].index,
+                ) if step["risk_level"] == "low" else step["risk_level"]
+                logger.warning(
+                    f"Forced approval_required=true on step {step.get('step_number')} "
+                    f"— detected external action: {step.get('action', '')[:80]}"
+                )
+
         # Enrich with metadata
         plan = {
             "plan_id": str(uuid.uuid4()),
             "instruction": instruction,
             "summary": plan_data.get("summary", instruction),
-            "steps": plan_data["steps"],
+            "steps": steps,
             "requires_any_approval": plan_data.get("requires_any_approval", True),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "token_usage": result.get("tokens", {}),
@@ -204,6 +231,27 @@ Output a JSON plan following the schema."""
             "summary": f"Analyze and prepare recommendation for: {instruction}",
             "requires_any_approval": False,
         }
+
+    # ── Internal helpers ──────────────────────────────────────────────
+
+    _EXTERNAL_ACTION_KEYWORDS = frozenset({
+        "send", "email", "publish", "post", "delete", "pay", "payment",
+        "invoice", "notify", "message", "execute", "deploy", "submit",
+        "create", "update", "upload", "schedule", "book", "transfer",
+        "share", "broadcast", "announce", "release", "push", "dispatch",
+    })
+
+    _VALID_RISK_LEVELS = frozenset({"low", "medium", "high", "critical"})
+
+    def _is_external_action(self, action: str) -> bool:
+        words = set(action.lower().split())
+        return bool(words & self._EXTERNAL_ACTION_KEYWORDS)
+
+    def _validate_risk_level(self, risk_level: str) -> str:
+        if risk_level not in self._VALID_RISK_LEVELS:
+            logger.warning(f"Unknown risk_level '{risk_level}', defaulting to 'medium'")
+            return "medium"
+        return risk_level
 
     def replan_step(self, step: dict, reason: str) -> dict:
         """
