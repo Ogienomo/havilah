@@ -20,7 +20,8 @@ class ApprovalRepository:
         with get_session() as db:
             result = db.execute(
                 text("""
-                    SELECT id, action_type, current_state, intent_summary, risk_level, confidence
+                    SELECT id, action_type, current_state,
+                           intent_summary AS summary, risk_level, confidence
                     FROM approval_requests
                     WHERE current_state IN ('draft', 'proposed', 'queued_for_review', 'awaiting_approval')
                     ORDER BY created_at

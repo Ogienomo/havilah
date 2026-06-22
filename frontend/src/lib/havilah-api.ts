@@ -346,4 +346,20 @@ export const havilahApi = {
         body: JSON.stringify({ message, agent_type: agentType }),
       }
     ),
+
+  /** Get user preferences from backend (auto_approve, etc.) */
+  getPreferences: (userId: string) =>
+    apiFetch<{ user_id: string; auto_approve: boolean; preferences: Record<string, unknown> }>(
+      `/api/user/preferences?user_id=${encodeURIComponent(userId)}`
+    ),
+
+  /** Update user preferences in backend */
+  updatePreferences: (userId: string, update: { auto_approve?: boolean; preferences?: Record<string, unknown> }) =>
+    apiFetch<{ user_id: string; auto_approve: boolean; preferences: Record<string, unknown> }>(
+      `/api/user/preferences?user_id=${encodeURIComponent(userId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(update),
+      }
+    ),
 }

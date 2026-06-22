@@ -30,6 +30,7 @@ from backend.hermes.agent_registry import AgentRegistry
 from backend.hermes.task_planner import TaskPlanner
 from backend.hermes.approval_gate import ApprovalGate
 from backend.hermes.memory_recorder import MemoryRecorder
+from backend.repositories.hermes_run_repository import HermesRunRepository
 from backend.config.settings import get_settings
 
 logger = logging.getLogger("havilah.orchestrator")
@@ -67,8 +68,9 @@ class HermesOrchestrator:
         self.planner = TaskPlanner()
         self.approval_gate = ApprovalGate()
         self.memory_recorder = MemoryRecorder()
+        self.run_repo = HermesRunRepository()
 
-        # Track active runs
+        # In-memory cache for fast lookups (DB is the source of truth)
         self._active_runs: dict[str, dict] = {}
 
     def process_instruction(
@@ -106,7 +108,7 @@ class HermesOrchestrator:
 
         logger.info(f"Hermes run {run_id} started: '{instruction[:80]}...' (source={source})")
 
-        # Track the run
+        # Track the run in memory and persist to DB
         run = {
             "run_id": run_id,
             "instruction": instruction,
@@ -116,6 +118,7 @@ class HermesOrchestrator:
             "context": context or {},
         }
         self._active_runs[run_id] = run
+        self.run_repo.create(run_id, instruction, source, context or {})
 
         try:
             # ── Step 1: RECALL relevant memory ─────────────────────
@@ -172,10 +175,8 @@ class HermesOrchestrator:
 
                     # Mark the run as awaiting approval
                     run["status"] = RunStatus.AWAITING_APPROVAL
-
-                    # For now, we stop execution and return with pending approval
-                    # The user must approve via API or WhatsApp, then call continue_run()
                     results.append(step_result)
+                    self.run_repo.update_status(run_id, RunStatus.AWAITING_APPROVAL, plan=plan, results=results)
 
                     logger.info(
                         f"[{run_id}] Awaiting approval {approval_id} for step {step_num}"
@@ -209,6 +210,7 @@ class HermesOrchestrator:
 
             run["status"] = RunStatus.COMPLETED
             run["completed_at"] = datetime.now(timezone.utc).isoformat()
+            self.run_repo.update_status(run_id, RunStatus.COMPLETED, plan=plan, results=results)
 
             elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
             logger.info(
@@ -232,6 +234,7 @@ class HermesOrchestrator:
             logger.error(f"Hermes run {run_id} failed: {e}")
             run["status"] = RunStatus.FAILED
             run["error"] = str(e)
+            self.run_repo.update_status(run_id, RunStatus.FAILED, error=str(e))
 
             return {
                 "run_id": run_id,
@@ -257,7 +260,11 @@ class HermesOrchestrator:
             Updated run result dict
         """
         if run_id not in self._active_runs:
-            return {"error": f"Run {run_id} not found or expired"}
+            # Try to reload from DB (post-restart recovery)
+            db_run = self.run_repo.get(run_id)
+            if db_run is None:
+                return {"error": f"Run {run_id} not found or expired"}
+            self._active_runs[run_id] = db_run
 
         run = self._active_runs[run_id]
         if run["status"] != RunStatus.AWAITING_APPROVAL:
@@ -452,13 +459,12 @@ class HermesOrchestrator:
         return summary
 
     def get_run(self, run_id: str) -> Optional[dict]:
-        """Get the status of an active run."""
-        return self._active_runs.get(run_id)
+        """Get the status of a run — checks memory cache first, then DB."""
+        if run_id in self._active_runs:
+            return self._active_runs[run_id]
+        # Fall back to DB (handles post-restart lookups)
+        return self.run_repo.get(run_id)
 
     def list_active_runs(self) -> list[dict]:
-        """List all active (non-completed) runs."""
-        return [
-            {"run_id": r["run_id"], "status": r["status"], "instruction": r["instruction"][:80]}
-            for r in self._active_runs.values()
-            if r["status"] not in (RunStatus.COMPLETED, RunStatus.FAILED, RunStatus.CANCELLED)
-        ]
+        """List all active (non-completed) runs from DB."""
+        return self.run_repo.list_active()

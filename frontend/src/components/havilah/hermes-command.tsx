@@ -64,7 +64,20 @@ const RISK_COLORS: Record<string, string> = {
 
 type RunState = "idle" | "submitting" | "completed" | "awaiting_approval" | "failed" | "auto_approving"
 
-const AUTO_APPROVE_KEY = "havilah_auto_approve"
+const AUTO_APPROVE_KEY = "havilah_auto_approve" // local cache only
+const USER_KEY = "havilah_user"
+
+function getCurrentUserId(): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    const raw = localStorage.getItem(USER_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed?.id ?? parsed?.user_id ?? null
+  } catch {
+    return null
+  }
+}
 
 // ─── Helper: detect if a response needs human approval ─────────────
 function needsApproval(resp: HermesInstructionResponse): boolean {
@@ -89,21 +102,41 @@ export function HermesCommand() {
   const [errorMsg, setErrorMsg] = useState<string>("")
   const [actingOnApproval, setActingOn] = useState<"approve" | "reject" | null>(null)
 
-  // Auto-approve toggle (persisted to localStorage)
+  // Auto-approve toggle (persisted to backend; localStorage used as fast cache)
   const [autoApprove, setAutoApprove] = useState(false)
   const autoApproveRef = useRef(false)
+
   useEffect(() => {
     if (typeof window === "undefined") return
-    const stored = localStorage.getItem(AUTO_APPROVE_KEY)
-    const initial = stored === "true"
-    setAutoApprove(initial)
-    autoApproveRef.current = initial
+    // Optimistically load from localStorage cache while backend responds
+    const cached = localStorage.getItem(AUTO_APPROVE_KEY) === "true"
+    setAutoApprove(cached)
+    autoApproveRef.current = cached
+
+    if (!isApiConfigured) return
+    const userId = getCurrentUserId()
+    if (!userId) return
+    havilahApi.getPreferences(userId)
+      .then((prefs) => {
+        setAutoApprove(prefs.auto_approve)
+        autoApproveRef.current = prefs.auto_approve
+        try { localStorage.setItem(AUTO_APPROVE_KEY, String(prefs.auto_approve)) } catch {}
+      })
+      .catch(() => { /* keep local cache on error */ })
   }, [])
+
   const toggleAutoApprove = useCallback(() => {
     const next = !autoApprove
     setAutoApprove(next)
     autoApproveRef.current = next
     try { localStorage.setItem(AUTO_APPROVE_KEY, String(next)) } catch {}
+
+    // Persist to backend (fire-and-forget)
+    const userId = getCurrentUserId()
+    if (userId && isApiConfigured) {
+      havilahApi.updatePreferences(userId, { auto_approve: next }).catch(() => {})
+    }
+
     if (next) {
       toast.success("Auto-Approve ON", {
         description: "Future runs will continue automatically when approval is needed.",

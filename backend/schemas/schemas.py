@@ -52,12 +52,12 @@ class DepartmentResponse(BaseModel):
 # ════════════════════════════════════════════════════════════════
 
 class ContactCreate(BaseModel):
-    full_name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
+    full_name: str = Field(..., min_length=1, max_length=300)
+    email: Optional[str] = Field(None, max_length=320)
+    phone: Optional[str] = Field(None, max_length=50)
     organization_id: Optional[UUID] = None
-    role: Optional[str] = None
-    notes: Optional[str] = None
+    role: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=10000)
 
 class ContactResponse(BaseModel):
     id: UUID
@@ -132,11 +132,11 @@ class TaskResponse(BaseModel):
 # ════════════════════════════════════════════════════════════════
 
 class ApprovalRequestCreate(BaseModel):
-    action_type: str = Field(..., min_length=1)
-    summary: str = Field(..., min_length=1)
-    channel: Optional[str] = "internal"
-    risk_level: Optional[str] = "medium"
-    confidence: Optional[float] = None
+    action_type: str = Field(..., min_length=1, max_length=200)
+    summary: str = Field(..., min_length=1, max_length=10000)
+    channel: Optional[str] = Field("internal", max_length=50)
+    risk_level: Optional[str] = Field("medium", pattern="^(low|medium|high|critical)$")
+    confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
     draft_payload: Optional[dict] = None
     project_id: Optional[UUID] = None
     contact_id: Optional[UUID] = None
@@ -171,22 +171,22 @@ class ApprovalResponse(BaseModel):
 # ════════════════════════════════════════════════════════════════
 
 class MemoryCapture(BaseModel):
-    memory_type: str = Field(..., min_length=1)
-    title: str = Field(..., min_length=1)
-    content: Optional[str] = None
-    source: Optional[str] = None
-    importance: Optional[float] = 0.5
-    confidence: Optional[float] = 0.5
+    memory_type: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(..., min_length=1, max_length=500)
+    content: Optional[str] = Field(None, max_length=50000)
+    source: Optional[str] = Field(None, max_length=200)
+    importance: Optional[float] = Field(0.5, ge=0.0, le=1.0)
+    confidence: Optional[float] = Field(0.5, ge=0.0, le=1.0)
 
 class MemoryCaptureCommand(BaseModel):
     """Command model for Hermes memory recorder — matches MemoryCapture with string importance."""
-    memory_type: str = Field(..., min_length=1)
-    title: str = Field(..., min_length=1)
-    content: Optional[str] = None
-    source: Optional[str] = None
-    importance: Optional[str] = "medium"  # low, medium, high, critical
-    confidence: Optional[float] = 0.5
-    status: Optional[str] = "active"
+    memory_type: str = Field(..., min_length=1, max_length=100)
+    title: str = Field(..., min_length=1, max_length=500)
+    content: Optional[str] = Field(None, max_length=50000)
+    source: Optional[str] = Field(None, max_length=200)
+    importance: Optional[str] = Field("medium", pattern="^(low|medium|high|critical)$")
+    confidence: Optional[float] = Field(0.5, ge=0.0, le=1.0)
+    status: Optional[str] = Field("active", max_length=50)
 
 class MemoryLinkInput(BaseModel):
     entity_type: str

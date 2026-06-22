@@ -152,12 +152,28 @@ Output a JSON plan following the schema."""
             logger.warning("LLM plan did not include 'steps', creating default plan")
             plan_data = self._create_fallback_plan(instruction)
 
+        steps = plan_data["steps"]
+
+        # Validate risk_level and enforce approval_required for external actions
+        for step in steps:
+            step["risk_level"] = self._validate_risk_level(step.get("risk_level", "medium"))
+            if self._is_external_action(step.get("action", "")) and not step.get("approval_required"):
+                step["approval_required"] = True
+                step["risk_level"] = max(
+                    ["low", "medium", "high"],
+                    key=["low", "medium", "high"].index,
+                ) if step["risk_level"] == "low" else step["risk_level"]
+                logger.warning(
+                    f"Forced approval_required=true on step {step.get('step_number')} "
+                    f"— detected external action: {step.get('action', '')[:80]}"
+                )
+
         # Enrich with metadata
         plan = {
             "plan_id": str(uuid.uuid4()),
             "instruction": instruction,
             "summary": plan_data.get("summary", instruction),
-            "steps": plan_data["steps"],
+            "steps": steps,
             "requires_any_approval": plan_data.get("requires_any_approval", True),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "token_usage": result.get("tokens", {}),
@@ -204,6 +220,27 @@ Output a JSON plan following the schema."""
             "summary": f"Analyze and prepare recommendation for: {instruction}",
             "requires_any_approval": False,
         }
+
+    # ── Internal helpers ──────────────────────────────────────────────
+
+    _EXTERNAL_ACTION_KEYWORDS = frozenset({
+        "send", "email", "publish", "post", "delete", "pay", "payment",
+        "invoice", "notify", "message", "execute", "deploy", "submit",
+        "create", "update", "upload", "schedule", "book", "transfer",
+        "share", "broadcast", "announce", "release", "push", "dispatch",
+    })
+
+    _VALID_RISK_LEVELS = frozenset({"low", "medium", "high", "critical"})
+
+    def _is_external_action(self, action: str) -> bool:
+        words = set(action.lower().split())
+        return bool(words & self._EXTERNAL_ACTION_KEYWORDS)
+
+    def _validate_risk_level(self, risk_level: str) -> str:
+        if risk_level not in self._VALID_RISK_LEVELS:
+            logger.warning(f"Unknown risk_level '{risk_level}', defaulting to 'medium'")
+            return "medium"
+        return risk_level
 
     def replan_step(self, step: dict, reason: str) -> dict:
         """
