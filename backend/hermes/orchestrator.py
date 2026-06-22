@@ -133,7 +133,8 @@ class HermesOrchestrator:
 
             # ── Step 2: PLAN the execution ─────────────────────────
             logger.info(f"[{run_id}] Creating execution plan...")
-            plan_context = {**(context or {}), **memory_context}
+            # Include original instruction so _dispatch_agent can surface it to every agent
+            plan_context = {**(context or {}), **memory_context, "instruction": instruction}
             plan = self.planner.plan(instruction, context=plan_context)
 
             run["plan"] = plan
@@ -378,32 +379,41 @@ class HermesOrchestrator:
     ) -> dict:
         """
         Dispatch a step to a specialized agent via LLM.
-
-        The agent receives:
-        - The action to perform
-        - Context from previous steps
-        - Its system prompt (role-specific)
-
-        The agent returns:
-        - The output (analysis, draft, recommendation, etc.)
-        - Whether it requires human review
-        - Confidence level
         """
-        # Build conversation with previous results as context
-        messages = []
+        # Planner must never be an execution agent — redirect to executive
+        if agent_name == "planner":
+            logger.warning(f"[{run_id}] Planner assigned as execution step — redirecting to executive")
+            agent_name = "executive"
 
-        # Include previous step results as context
+        # Original instruction gives the agent crucial goal context
+        original_instruction = (context or {}).get("instruction", action)
+
+        # Build a structured, information-rich user message
+        parts = [f"OVERALL GOAL: {original_instruction}"]
+
+        if original_instruction != action:
+            parts.append(f"YOUR SPECIFIC TASK: {action}")
+
+        expected = step.get("expected_output", "")
+        if expected:
+            parts.append(f"EXPECTED DELIVERABLE: {expected}")
+
+        # Provide context from prior steps (last 3 only to stay focused)
         if previous_results:
-            prev_summary = "Previous step results:\n"
-            for i, r in enumerate(previous_results):
-                output = r.get("output", "No output")
-                if isinstance(output, str) and len(output) > 300:
-                    output = output[:300] + "..."
-                prev_summary += f"Step {i+1}: {output}\n"
-            messages.append({"role": "assistant", "content": prev_summary})
+            ctx_lines = ["CONTEXT FROM PREVIOUS STEPS ALREADY COMPLETED:"]
+            for r in previous_results[-3:]:
+                out = str(r.get("output", ""))
+                if len(out) > 500:
+                    out = out[:500] + "…"
+                ctx_lines.append(f"• [{r.get('agent', 'agent')}] {out}")
+            parts.append("\n".join(ctx_lines))
 
-        # The actual instruction for this step
-        messages.append({"role": "user", "content": action})
+        parts.append(
+            "INSTRUCTION: Produce complete, specific, high-quality output for your task above. "
+            "Do NOT ask for clarification. Do NOT describe your process. Deliver the result directly."
+        )
+
+        messages = [{"role": "user", "content": "\n\n".join(parts)}]
 
         # Get agent-specific overrides
         agent_def = self.registry.get(agent_name)
@@ -438,25 +448,41 @@ class HermesOrchestrator:
             }
 
     def _generate_summary(self, instruction: str, results: list[dict], awaiting_approval: bool = False) -> str:
-        """Generate a human-readable summary of the orchestration results."""
+        """
+        Generate a clean, human-readable summary — the primary result shown to the user.
+
+        Priority: surface the most substantive agent output rather than dumping all steps.
+        """
+        if not results:
+            return instruction
+
         if awaiting_approval:
-            summary = f"Processed: {instruction}\n\nExecution paused — human approval required.\n\n"
-        else:
-            summary = f"Processed: {instruction}\n\n"
+            pending = results[-1]
+            out = str(pending.get("output", ""))[:800]
+            return (
+                f"**Execution paused — human approval required**\n\n"
+                f"**Pending action:** {pending.get('action', '')}\n\n"
+                f"{out}"
+            )
 
-        for i, r in enumerate(results):
-            agent = r.get("agent", "unknown")
-            status = r.get("status", "unknown")
-            output = r.get("output", "No output")
-            if isinstance(output, str) and len(output) > 200:
-                output = output[:200] + "..."
-            summary += f"{i+1}. [{agent}] ({status}): {output}\n"
+        # Select the most substantive successful result in priority order
+        priority_agents = ["research", "writing", "executive", "meeting", "critic", "reviewer", "learning"]
+        primary = None
+        for agent_name in priority_agents:
+            for r in reversed(results):
+                if r.get("agent") == agent_name and r.get("status") == "success":
+                    primary = r
+                    break
+            if primary:
+                break
 
-            if r.get("approval"):
-                approval_status = r["approval"].get("status", "unknown")
-                summary += f"   Approval: {approval_status}\n"
+        if primary is None:
+            primary = next(
+                (r for r in reversed(results) if r.get("status") == "success"),
+                results[-1],
+            )
 
-        return summary
+        return str(primary.get("output", f"Completed: {instruction}"))
 
     def get_run(self, run_id: str) -> Optional[dict]:
         """Get the status of a run — checks memory cache first, then DB."""
