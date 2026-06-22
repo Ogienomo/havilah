@@ -388,23 +388,34 @@ export function HermesCommand() {
           )}
         </AnimatePresence>
 
-        {/* ── Answer panel ─────────────────────────────────────────── */}
+        {/* ── Answer panel — render FULL per-step outputs, not the truncated backend summary ──── */}
         <AnimatePresence>
-          {!isProcessing && runState === "completed" && result?.summary && (
+          {!isProcessing && (runState === "completed" || runState === "awaiting_approval") && results.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="rounded-xl border border-havilah-gold/25 bg-havilah-gold/5 p-5 sm:p-6 space-y-3"
+              className="rounded-xl border border-havilah-gold/25 bg-havilah-gold/5 p-5 sm:p-6 space-y-4"
             >
-              <div className="flex items-center gap-2.5 pb-2 border-b border-havilah-gold/15">
-                <div className="flex h-6 w-6 items-center justify-center rounded bg-havilah-gold/20">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-havilah-gold" />
+              <div className="flex items-center gap-2.5 pb-3 border-b border-havilah-gold/15">
+                <div className="flex h-7 w-7 items-center justify-center rounded bg-havilah-gold/20">
+                  {runState === "awaiting_approval"
+                    ? <Clock className="h-4 w-4 text-amber-600" />
+                    : <CheckCircle2 className="h-4 w-4 text-havilah-gold" />}
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-widest text-havilah-gold">Result</span>
+                <span className="text-xs font-semibold uppercase tracking-widest text-havilah-gold">
+                  {runState === "awaiting_approval" ? "Partial Result" : "Result"}
+                </span>
+                <Badge variant="outline" className="ml-auto text-[10px] border-havilah-gold/30 text-havilah-gold">
+                  {results.length} {results.length === 1 ? "step" : "steps"}
+                </Badge>
               </div>
-              <div className="prose-answer">
-                <Markdown>{result.summary}</Markdown>
+
+              {/* Render each step's FULL output — no truncation, with collapsibility for very long ones */}
+              <div className="space-y-3">
+                {results.map((r, idx) => (
+                  <FullStepResult key={idx} result={r} />
+                ))}
               </div>
             </motion.div>
           )}
@@ -640,6 +651,81 @@ function ResultOutput({ text, tokens, expanded, onToggle }: { text: string; toke
           <ChevronRight className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`} />
           {expanded ? "Show less" : `Show full output (${text.length} chars)`}
         </button>
+      )}
+    </div>
+  )
+}
+
+// ─── Full step result (for main Result panel — expanded by default) ───────────
+function FullStepResult({ result }: { result: HermesResult }) {
+  const visual = getAgentVisual(result.agent)
+  const Icon = visual.icon
+  const text = getResultText(result)
+  const isFailed = result.status === "failed"
+  const [collapsed, setCollapsed] = useState(false)
+  const isLong = text.length > 1200  // only offer collapse for VERY long outputs
+
+  return (
+    <div
+      className={`rounded-lg border bg-card overflow-hidden transition-colors ${
+        isFailed
+          ? "border-red-500/30 bg-red-500/5"
+          : "border-border/70"
+      }`}
+    >
+      {/* Step header */}
+      <div className="px-4 py-3 flex items-center gap-3 border-b border-border/50 bg-muted/20">
+        <div
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+          style={{ backgroundColor: `${visual.color}15`, color: visual.color }}
+        >
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold text-foreground truncate">
+            {visual.label}
+            {result.action && result.action !== visual.label && (
+              <span className="text-muted-foreground/60 font-normal"> · {result.action}</span>
+            )}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {result.status === "success" && (
+              <Badge variant="outline" className="text-[9px] border-emerald-500/30 text-emerald-600 bg-emerald-500/5 px-1.5 py-0 h-4">
+                <CheckCircle2 className="h-2 w-2 mr-0.5" />Done
+              </Badge>
+            )}
+            {isFailed && (
+              <Badge variant="outline" className="text-[9px] border-red-500/30 text-red-600 bg-red-500/5 px-1.5 py-0 h-4">
+                <XCircle className="h-2 w-2 mr-0.5" />Failed
+              </Badge>
+            )}
+            {result.tokens != null && (
+              <span className="text-[10px] text-muted-foreground/50 font-mono">{result.tokens} tok</span>
+            )}
+          </div>
+        </div>
+        {isLong && (
+          <button
+            type="button"
+            onClick={() => setCollapsed((v) => !v)}
+            className="shrink-0 text-[10px] text-muted-foreground/60 hover:text-foreground px-2 py-1 rounded transition-colors hover:bg-muted/50"
+          >
+            {collapsed ? "Expand" : "Collapse"}
+          </button>
+        )}
+      </div>
+
+      {/* Step body — FULL output, no truncation */}
+      {!collapsed && (
+        <div className="px-4 py-3.5">
+          {isFailed && result.error ? (
+            <p className="text-xs text-red-600 font-mono leading-relaxed">{result.error}</p>
+          ) : (
+            <div className="prose-answer max-w-none text-foreground/85 [&_h1]:text-sm [&_h1]:font-semibold [&_h1]:mt-3 [&_h1]:mb-1.5 [&_h2]:text-[13px] [&_h2]:font-semibold [&_h2]:mt-2.5 [&_h2]:mb-1 [&_h3]:text-xs [&_h3]:font-semibold [&_h3]:mt-2 [&_h3]:mb-1 [&_p]:mb-2 [&_p]:leading-relaxed [&_ul]:my-1.5 [&_ul]:pl-5 [&_ol]:my-1.5 [&_ol]:pl-5 [&_li]:mb-1 [&_li]:leading-relaxed [&_code]:text-[11px] [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:rounded-md [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_blockquote]:border-l-2 [&_blockquote]:border-havilah-gold/40 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_hr]:my-3 [&_hr]:border-border [&_a]:text-havilah-gold [&_a]:underline [&_strong]:font-semibold [&_table]:w-full [&_th]:border [&_th]:border-border [&_th]:px-2 [&_th]:py-1 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1">
+              <Markdown>{text}</Markdown>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
