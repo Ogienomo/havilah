@@ -96,6 +96,17 @@ function getResultText(r: HermesResult): string {
   return r.output ?? r.error ?? r.action ?? JSON.stringify(r, null, 2)
 }
 
+// Backend returns tokens as either a number or {prompt, completion, total}
+function formatTokens(tokens?: HermesResult["tokens"]): string | null {
+  if (tokens == null) return null
+  if (typeof tokens === "number") return `${tokens} tok`
+  if (typeof tokens === "object") {
+    const t = tokens.total ?? ((tokens.prompt ?? 0) + (tokens.completion ?? 0))
+    return `${t} tok`
+  }
+  return null
+}
+
 // ─── Main component ────────────────────────────────────────────────
 export function HermesCommand() {
   const [instruction, setInstruction] = useState("")
@@ -624,9 +635,10 @@ function StepCard({ step, result, isAwaiting }: { step: HermesStep; result?: Her
 }
 
 // ─── Result output (collapsible) ──────────────────────────────────
-function ResultOutput({ text, tokens, expanded, onToggle }: { text: string; tokens?: number; expanded: boolean; onToggle: () => void }) {
+function ResultOutput({ text, tokens, expanded, onToggle }: { text: string; tokens?: HermesResult["tokens"]; expanded: boolean; onToggle: () => void }) {
   const isLong = text.length > 400
   const preview = isLong && !expanded ? text.slice(0, 400) + "…" : text
+  const tokenStr = formatTokens(tokens)
 
   return (
     <div className="rounded-md bg-muted/30 border border-border/50 overflow-hidden mt-2">
@@ -634,8 +646,8 @@ function ResultOutput({ text, tokens, expanded, onToggle }: { text: string; toke
         <div className="flex items-center gap-1.5 mb-2">
           <Cpu className="h-2.5 w-2.5 text-muted-foreground/40" />
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/40">Output</span>
-          {tokens != null && (
-            <span className="ml-auto text-[10px] text-muted-foreground/35 font-mono">{tokens} tok</span>
+          {tokenStr && (
+            <span className="ml-auto text-[10px] text-muted-foreground/35 font-mono">{tokenStr}</span>
           )}
         </div>
         <div className="text-xs leading-relaxed text-foreground/75 prose-answer [&_h2]:text-xs [&_h3]:text-xs [&_p]:mb-1.5 [&_ul]:pl-3 [&_li]:mb-0.5">
@@ -699,9 +711,7 @@ function FullStepResult({ result }: { result: HermesResult }) {
                 <XCircle className="h-2 w-2 mr-0.5" />Failed
               </Badge>
             )}
-            {result.tokens != null && (
-              <span className="text-[10px] text-muted-foreground/50 font-mono">{result.tokens} tok</span>
-            )}
+            {result.tokens != null && (() => { const t = formatTokens(result.tokens); return t ? <span className="text-[10px] text-muted-foreground/50 font-mono">{t}</span> : null })()}
           </div>
         </div>
         {isLong && (

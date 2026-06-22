@@ -153,7 +153,7 @@ export interface HermesResult {
   action: string
   status: "success" | "failed" | string
   output: string
-  tokens?: number
+  tokens?: number | { prompt?: number; completion?: number; total?: number }
   requires_approval?: boolean
   approval?: {
     approval_id: string
