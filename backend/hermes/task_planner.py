@@ -234,18 +234,74 @@ Output a JSON plan following the schema."""
 
     # ── Internal helpers ──────────────────────────────────────────────
 
+    # Words that ALWAYS mean external action (high confidence)
     _EXTERNAL_ACTION_KEYWORDS = frozenset({
         "send", "email", "publish", "post", "delete", "pay", "payment",
         "invoice", "notify", "message", "execute", "deploy", "submit",
-        "create", "update", "upload", "schedule", "book", "transfer",
-        "share", "broadcast", "announce", "release", "push", "dispatch",
+        "upload", "transfer", "share", "broadcast", "announce", "release",
+        "push", "dispatch",
+    })
+
+    # Words that CAN be external but are often internal — only flag when
+    # paired with an external target (e.g. "schedule a meeting" = external,
+    # but "schedule a review" = internal)
+    _AMBIGUOUS_KEYWORDS = frozenset({
+        "create", "update", "schedule", "book",
+    })
+
+    # When an ambiguous verb is paired with these nouns, it's INTERNAL
+    _INTERNAL_NOUNS_AFTER_AMBIGUOUS = frozenset({
+        "summary", "summaries", "draft", "drafts", "memo", "report", "reports",
+        "analysis", "analyses", "review", "reviews", "brief", "briefs",
+        "outline", "plan", "plans", "strategy", "recommendation", "recommendations",
+        "checklist", "template", "note", "notes", "document", "documentation",
+        "comparison", "evaluation", "assessment", "breakdown", "list",
+    })
+
+    # When an ambiguous verb is paired with these nouns, it's EXTERNAL
+    _EXTERNAL_NOUNS_AFTER_AMBIGUOUS = frozenset({
+        "meeting", "meetings", "event", "events", "appointment", "calendar",
+        "email", "message", "notification", "post", "campaign", "announcement",
+        "task", "ticket", "invoice", "payment", "order",
     })
 
     _VALID_RISK_LEVELS = frozenset({"low", "medium", "high", "critical"})
 
     def _is_external_action(self, action: str) -> bool:
-        words = set(action.lower().split())
-        return bool(words & self._EXTERNAL_ACTION_KEYWORDS)
+        """
+        Determine if an action touches external systems.
+
+        Conservative: only flag when we're confident. Internal text generation
+        (drafts, summaries, analysis) should NEVER be flagged as external.
+        """
+        if not action:
+            return False
+
+        words = action.lower().split()
+        word_set = set(words)
+
+        # High-confidence external keywords
+        if word_set & self._EXTERNAL_ACTION_KEYWORDS:
+            return True
+
+        # Check ambiguous verbs + their object
+        ambiguous_hit = word_set & self._AMBIGUOUS_KEYWORDS
+        if ambiguous_hit:
+            # Look at the noun immediately after the ambiguous verb
+            for i, w in enumerate(words):
+                if w in self._AMBIGUOUS_KEYWORDS and i + 1 < len(words):
+                    next_word = words[i + 1].rstrip(",.;:")
+                    # Strip articles
+                    while next_word in {"a", "an", "the", "some", "our", "my", "this", "that"} and i + 2 < len(words):
+                        i += 1
+                        next_word = words[i + 1].rstrip(",.;:")
+                    if next_word in self._EXTERNAL_NOUNS_AFTER_AMBIGUOUS:
+                        return True
+                    if next_word in self._INTERNAL_NOUNS_AFTER_AMBIGUOUS:
+                        continue  # internal, don't flag
+                    # Unknown noun — be permissive (don't flag)
+
+        return False
 
     def _validate_risk_level(self, risk_level: str) -> str:
         if risk_level not in self._VALID_RISK_LEVELS:

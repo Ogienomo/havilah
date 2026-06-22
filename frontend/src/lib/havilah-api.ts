@@ -345,6 +345,25 @@ export const havilahApi = {
     return resp.results ?? resp.memories ?? []
   },
 
+  /** Create / capture a new memory item */
+  createMemory: async (input: {
+    title: string
+    content: string
+    memory_type?: string
+    importance?: number  // 0.0 - 1.0
+    source?: string
+  }) =>
+    apiFetch<{ id: string; memory_type: string; title: string }>("/api/memory/capture", {
+      method: "POST",
+      body: JSON.stringify({
+        memory_type: input.memory_type ?? "operational",
+        title: input.title,
+        content: input.content,
+        source: input.source ?? "dashboard",
+        importance: input.importance ?? 0.5,
+      }),
+    }),
+
   /** List memories by type */
   listMemoryByType: (memoryType: string) =>
     apiFetch<MemoryItem[]>(`/api/memory/type/${encodeURIComponent(memoryType)}`),
