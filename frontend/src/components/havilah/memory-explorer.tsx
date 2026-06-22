@@ -15,7 +15,7 @@ import {
 } from "@/lib/havilah-api"
 import { Search, Brain, AlertCircle, RefreshCw, Sparkles } from "lucide-react"
 
-// Memory types from the spec — colors mirror mock-data.ts
+// Memory type color palette — light-theme tuned for premium contrast
 const typeColors: Record<string, string> = {
   profile: "bg-sky-500/10 text-sky-500 border-sky-500/20",
   client: "bg-havilah-gold/10 text-havilah-gold border-havilah-gold/20",

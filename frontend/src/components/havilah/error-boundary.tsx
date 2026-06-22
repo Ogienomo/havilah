@@ -3,6 +3,7 @@
 import { Component, ReactNode } from "react"
 import { AlertCircle, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import * as Sentry from "@sentry/nextjs"
 
 interface Props {
   children: ReactNode
@@ -32,7 +33,23 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Structured console log — Sentry can capture this automatically
+    // Forward to Sentry — captures the React component stack as context
+    Sentry.captureException(error, {
+      contexts: {
+        react: {
+          componentStack: errorInfo.componentStack,
+        },
+      },
+      tags: {
+        source: "react-error-boundary",
+      },
+      extra: {
+        url: typeof window !== "undefined" ? window.location.href : "SSR",
+        timestamp: new Date().toISOString(),
+      },
+    })
+
+    // Keep the console log for local dev debugging
     console.error("[Havilah ErrorBoundary]", {
       error: error.message,
       stack: error.stack,

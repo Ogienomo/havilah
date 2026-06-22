@@ -30,17 +30,16 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-type LoadState = "loading" | "live" | "error" | "demo"
+type LoadState = "loading" | "live" | "error" | "notconfigured"
 
 export function HeroStats() {
   const [stats, setStats] = useState<StatItem[]>([])
-  const [state, setState] = useState<LoadState>(isApiConfigured ? "loading" : "demo")
+  const [state, setState] = useState<LoadState>(isApiConfigured ? "loading" : "notconfigured")
   const [errorMsg, setErrorMsg] = useState("")
 
   const load = useCallback(async () => {
     if (!isApiConfigured) {
-      setStats(getDemoStats())
-      setState("demo")
+      setState("notconfigured")
       return
     }
     setState("loading")
@@ -99,8 +98,8 @@ export function HeroStats() {
           label: "Active Hermes Runs",
           value: activeRuns,
           icon: <Activity className="h-5 w-5" />,
-          dotColor: activeRuns > 0 ? "bg-sky-500" : "bg-slate-400",
-          change: activeRuns > 0 ? "In progress" : "Idle",
+          dotColor: activeRuns > 0 ? "bg-sky-500" : "bg-emerald-500",
+          change: activeRuns > 0 ? "In progress" : "Ready",
         },
         {
           label: "Recent Events",
@@ -149,6 +148,21 @@ export function HeroStats() {
     )
   }
 
+  // Show not-configured state instead of fake demo numbers
+  if (state === "notconfigured") {
+    return (
+      <Card className="border-amber-500/30 bg-card">
+        <CardContent className="p-6 flex flex-col items-center gap-2 text-center">
+          <AlertCircle className="h-7 w-7 text-amber-500" />
+          <p className="text-sm font-medium text-foreground">Backend not configured</p>
+          <p className="text-xs text-muted-foreground/70 max-w-md">
+            Set <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px]">NEXT_PUBLIC_HAVILAH_API_URL</code> in your Vercel environment to enable live metrics.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <motion.div
       variants={container}
@@ -187,35 +201,4 @@ export function HeroStats() {
   )
 }
 
-function getDemoStats(): StatItem[] {
-  return [
-    {
-      label: "Active Agents",
-      value: "—",
-      icon: <Users className="h-5 w-5" />,
-      dotColor: "bg-slate-400",
-      change: "Demo mode",
-    },
-    {
-      label: "Pending Approvals",
-      value: "—",
-      icon: <ShieldCheck className="h-5 w-5" />,
-      dotColor: "bg-slate-400",
-      change: "Demo mode",
-    },
-    {
-      label: "Active Hermes Runs",
-      value: "—",
-      icon: <Activity className="h-5 w-5" />,
-      dotColor: "bg-slate-400",
-      change: "Demo mode",
-    },
-    {
-      label: "Recent Events",
-      value: "—",
-      icon: <Zap className="h-5 w-5" />,
-      dotColor: "bg-slate-400",
-      change: "Demo mode",
-    },
-  ]
-}
+
