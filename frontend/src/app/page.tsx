@@ -1,5 +1,3 @@
-"use client"
-
 import { Header } from "@/components/havilah/header"
 import { HeroStats } from "@/components/havilah/hero-stats"
 import { HermesCommand } from "@/components/havilah/hermes-command"

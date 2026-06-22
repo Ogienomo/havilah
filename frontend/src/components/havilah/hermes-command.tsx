@@ -275,7 +275,7 @@ export function HermesCommand() {
             <Input
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
-              placeholder="What would you like Hermes to do? (e.g. "Research top 5 AI tools for 2026")"
+              placeholder='What would you like Hermes to do? (e.g. "Research the top 5 AI tools for 2026")'
               disabled={isProcessing}
               className="flex-1 h-11 bg-background/60 border-border text-sm placeholder:text-muted-foreground/50 focus-visible:border-havilah-gold focus-visible:ring-havilah-gold/20"
             />
